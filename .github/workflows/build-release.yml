@@ -20,6 +20,32 @@ jobs:
       - name: Set up Gradle with cache
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Run unit tests
+        id: unit_tests
+        run: |
+          ./gradlew testDebugUnitTest
+          TESTS=0
+          FAILURES=0
+          ERRORS=0
+          SKIPPED=0
+          for f in app/build/test-results/testDebugUnitTest/*.xml; do
+            TESTS=$((TESTS + $(grep -m1 -o ' tests="[0-9]*"' "$f" | grep -o '[0-9]*')))
+            FAILURES=$((FAILURES + $(grep -m1 -o ' failures="[0-9]*"' "$f" | grep -o '[0-9]*')))
+            ERRORS=$((ERRORS + $(grep -m1 -o ' errors="[0-9]*"' "$f" | grep -o '[0-9]*')))
+            SKIPPED=$((SKIPPED + $(grep -m1 -o ' skipped="[0-9]*"' "$f" | grep -o '[0-9]*')))
+          done
+          echo "UNIT TESTS RAN: $TESTS, FAILED: $FAILURES, ERRORS: $ERRORS, SKIPPED: $SKIPPED"
+
+      - name: Upload the test report (only when tests fail)
+        if: failure() && steps.unit_tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: |
+            app/build/reports/tests/testDebugUnitTest
+            app/build/test-results/testDebugUnitTest
+          if-no-files-found: warn
+
       - name: Rebuild the keystore from the secret
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
