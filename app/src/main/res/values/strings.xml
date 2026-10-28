@@ -1,4 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Twelve Pits</string>
+    <string name="publisher">© Neribo Group</string>
+    <string name="back">Back</string>
+
+    <!-- Launch -->
+    <string name="launch_loading">Loading %1$d%%</string>
+    <string name="launch_ready">Ready</string>
+    <string name="launch_logo_description">Twelve Pits (Ayo)</string>
+
+    <!-- Main menu -->
+    <string name="menu_continue">CONTINUE</string>
+    <string name="menu_play">PLAY</string>
+    <string name="menu_how_to_play">How to play</string>
+    <string name="menu_settings">Settings</string>
+
+    <!-- Mode select -->
+    <string name="mode_title">Play</string>
+    <string name="mode_computer_title">Play the computer</string>
+    <string name="mode_computer_subtitle">Easy, Normal or Hard</string>
+    <string name="mode_two_players_title">Two players</string>
+    <string name="mode_two_players_subtitle">Pass and play on one phone</string>
+    <string name="mode_two_phones_title">Two phones</string>
+    <string name="mode_two_phones_subtitle">Coming soon</string>
+
+    <!-- Game setup -->
+    <string name="setup_title">Game setup</string>
+    <string name="setup_your_name">Your name</string>
+    <string name="setup_player1_name">Player 1 name</string>
+    <string name="setup_player2_name">Player 2 name</string>
+    <string name="setup_avatar">Avatar</string>
+    <string name="setup_difficulty">Difficulty</string>
+    <string name="setup_start">START GAME</string>
+    <string name="default_name_you">You</string>
+    <string name="default_name_player1">Player 1</string>
+    <string name="default_name_player2">Player 2</string>
+    <string name="computer_name">Computer</string>
+    <string name="avatar_oba">Oba</string>
+    <string name="avatar_iyoba">Iyoba</string>
+    <string name="avatar_warrior">Warrior</string>
+    <string name="avatar_leopard">Leopard</string>
+    <string name="avatar_taken">%1$s (taken)</string>
+    <string name="difficulty_easy">Easy</string>
+    <string name="difficulty_normal">Normal</string>
+    <string name="difficulty_hard">Hard</string>
+
+    <!-- How to play -->
+    <string name="howto_title">How to play</string>
+    <string name="howto_page_sow_title">Sow</string>
+    <string name="howto_page_sow_body">Pick one of your own pits and pick up all its seeds. Drop one seed in each pit after it, moving anticlockwise.</string>
+    <string name="howto_page_relay_title">Relay</string>
+    <string name="howto_page_relay_body">If your last seed lands in a pit that already had seeds, pick up that whole pit and keep going. If it lands in an empty pit, your turn ends.</string>
+    <string name="howto_page_capture_title">Capture</string>
+    <string name="howto_page_capture_body">Whenever a pit becomes exactly 4 seeds, those 4 seeds go to the store of the player who owns that side. This works in your pit or in your opponent\'s pit. A pit with 5 or more seeds cannot be captured.</string>
+    <string name="howto_page_win_title">Win</string>
+    <string name="howto_page_win_body">The game ends when 44 seeds are captured. The player with more seeds in their store wins. The player who starts changes every game. If you have no seeds, your turn is skipped.</string>
+    <string name="howto_page_indicator">Page %1$d of %2$d</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_music">Music</string>
+    <string name="settings_music_volume">Music volume</string>
+    <string name="settings_sound_effects">Sound effects</string>
+    <string name="settings_vibration">Vibration</string>
+    <string name="settings_seed_speed">Seed speed</string>
+    <string name="seed_speed_slow">Slow</string>
+    <string name="seed_speed_normal">Normal</string>
+    <string name="seed_speed_fast">Fast</string>
+    <string name="settings_footer_title">Twelve Pits (Ayo)</string>
+    <string name="settings_footer_version">Version %1$s · © Neribo Group</string>
+
+    <!-- Temporary game screen (Replaced in Phase 4) -->
+    <string name="temp_game_title">Temporary screen</string>
+    <string name="temp_game_note">The game board is built in Phase 4. This screen only shows your choices.</string>
+    <string name="temp_game_mode">Mode: %1$s</string>
+    <string name="temp_game_difficulty">Difficulty: %1$s</string>
+    <string name="temp_game_player1">Player 1: %1$s (%2$s)</string>
+    <string name="temp_game_player2">Player 2: %1$s (%2$s)</string>
+    <string name="mode_name_vs_computer">Against the computer</string>
+    <string name="mode_name_two_players">Two players on one phone</string>
+    <string name="mode_name_two_phones">Two phones</string>
 </resources>

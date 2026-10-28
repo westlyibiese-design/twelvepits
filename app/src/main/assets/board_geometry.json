@@ -1,0 +1,110 @@
+{
+  "_comment": "All values are fractions of board.jpg (x of width, y of height) unless the key says _w (fraction of width). Image is 1567x415 px.",
+  "board_image": {
+    "file": "board.jpg",
+    "width_px": 1567,
+    "height_px": 415,
+    "aspect_ratio": 3.7759
+  },
+  "player1_pits_0_to_5_bottom_row_left_to_right": [
+    {
+      "pit": 0,
+      "cx": 0.2393,
+      "cy": 0.7277
+    },
+    {
+      "pit": 1,
+      "cx": 0.3427,
+      "cy": 0.7277
+    },
+    {
+      "pit": 2,
+      "cx": 0.4461,
+      "cy": 0.7277
+    },
+    {
+      "pit": 3,
+      "cx": 0.5495,
+      "cy": 0.7277
+    },
+    {
+      "pit": 4,
+      "cx": 0.6535,
+      "cy": 0.7277
+    },
+    {
+      "pit": 5,
+      "cx": 0.7575,
+      "cy": 0.7277
+    }
+  ],
+  "player2_pits_6_to_11_top_row_right_to_left": [
+    {
+      "pit": 6,
+      "cx": 0.7575,
+      "cy": 0.2578
+    },
+    {
+      "pit": 7,
+      "cx": 0.6535,
+      "cy": 0.2578
+    },
+    {
+      "pit": 8,
+      "cx": 0.5495,
+      "cy": 0.2578
+    },
+    {
+      "pit": 9,
+      "cx": 0.4461,
+      "cy": 0.2578
+    },
+    {
+      "pit": 10,
+      "cx": 0.3427,
+      "cy": 0.2578
+    },
+    {
+      "pit": 11,
+      "cx": 0.2393,
+      "cy": 0.2578
+    }
+  ],
+  "pit": {
+    "outer_ring_radius_w": 0.044,
+    "inner_bowl_radius_w": 0.0383
+  },
+  "stores": {
+    "player1_store_right": {
+      "cx": 0.9068,
+      "cy": 0.5157
+    },
+    "player2_store_left": {
+      "cx": 0.09,
+      "cy": 0.5157
+    },
+    "outer_radius_w": 0.0906,
+    "bowl_opening_radius_w": 0.0715
+  },
+  "seed": {
+    "file": "seed.png",
+    "aspect_w_over_h": 0.5827,
+    "length_in_pit_w": 0.0319,
+    "note": "seed.png is drawn upright (long side vertical); rotate by a random angle per seed"
+  },
+  "count_badges": {
+    "pit_badge_diameter_w": 0.027,
+    "min_diameter_dp": 20,
+    "top_row_pit_badge_cy": 0.4241,
+    "bottom_row_pit_badge_cy": 0.5614,
+    "note": "pit badge is centred on the pit's x, straddling the pit's rim that faces the middle gap of the board",
+    "store_badge_diameter_w": 0.045,
+    "store_badge_cy": 0.7855,
+    "store_badge_cx": "same cx as its store"
+  },
+  "visible_seed_caps": {
+    "per_pit": 14,
+    "per_store": 30,
+    "note": "draw at most this many seed sprites; the number badge always shows the true count"
+  }
+}
