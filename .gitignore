@@ -1,0 +1,22 @@
+# Signing keys and passwords: never commit these
+*.jks
+*.keystore
+*.p12
+keystore.properties
+signing.properties
+*.password
+.env
+.env.*
+KEYSTORE_BASE64*
+
+# Local and build files
+local.properties
+build/
+.gradle/
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
