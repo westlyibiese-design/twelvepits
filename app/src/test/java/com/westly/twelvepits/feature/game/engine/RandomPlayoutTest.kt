@@ -11,6 +11,7 @@ import kotlin.random.Random
 /**
  * Plays 2,000 complete games with fixed seeds and a simple random legal-move chooser.
  * If a game ever fails to finish, the test fails and prints the exact position.
+ * A turn stopped by the endless relay rule is allowed (RULES.md section 4); the step limit is not.
  */
 class RandomPlayoutTest {
     @Test
@@ -21,6 +22,7 @@ class RandomPlayoutTest {
         var totalTurns = 0L
         var longestGameTurns = 0
         var longestTurnSteps = 0
+        var loopStoppedTurns = 0
 
         for (game in 0 until gameCount) {
             val random = Random(game)
@@ -53,6 +55,17 @@ class RandomPlayoutTest {
                 assertEquals("move number, $label", before.moveNumber + 1, after.moveNumber)
                 assertEquals("starter never changes, $label", before.startingPlayer, after.startingPlayer)
 
+                if (result.outcome == TurnOutcome.LOOP_STOPPED) {
+                    loopStoppedTurns += 1
+                    assertEquals(
+                        "loop stop is the last turn event, $label",
+                        SowEvent.LoopStopped,
+                        result.events.last { it !is SowEvent.TurnSkipped },
+                    )
+                } else {
+                    assertTrue("no stray loop event, $label", result.events.none { it is SowEvent.LoopStopped })
+                }
+
                 val steps = result.events.count { it is SowEvent.Drop }
                 if (steps > longestTurnSteps) longestTurnSteps = steps
                 state = after
@@ -72,7 +85,8 @@ class RandomPlayoutTest {
             "Random playouts: games=$gameCount, " +
                 "averageTurnsPerGame=${"%.2f".format(average)}, " +
                 "longestGameTurns=$longestGameTurns, " +
-                "longestTurnSowingSteps=$longestTurnSteps",
+                "longestTurnSowingSteps=$longestTurnSteps, " +
+                "turnsStoppedByEndlessRelayRule=$loopStoppedTurns",
         )
     }
 }

@@ -3,7 +3,8 @@ package com.westly.twelvepits.feature.game.engine
 import com.westly.twelvepits.core.model.Player
 
 /**
- * The rules of RULES.md sections 3 to 8. Pure Kotlin, no Android imports.
+ * The rules of RULES.md sections 3 to 8 (including the endless relay rule of section 4).
+ * Pure Kotlin, no Android imports.
  * `playTurn` and `simulate` both run the same private `execute`, so they can never disagree.
  */
 class SowingEngine(
@@ -33,6 +34,8 @@ class SowingEngine(
         var steps = 0
         var outcome = TurnOutcome.TURN_ENDED
         var leftover = 0
+        // Every (board, landing pit) seen at a relay in this turn. Seeing one again means an endless relay.
+        val seenLandings = HashSet<List<Int>>()
 
         var hand = board[startPit]
         board[startPit] = 0
@@ -85,6 +88,12 @@ class SowingEngine(
                 // The pit was empty: the turn ends.
                 break
             }
+            if (!seenLandings.add(landingKey(board, current))) {
+                // Endless relay (RULES.md section 4): the same board has come back, so the turn ends.
+                outcome = TurnOutcome.LOOP_STOPPED
+                events?.add(SowEvent.LoopStopped)
+                break
+            }
             // The pit already had seeds: relay with the whole pit.
             events?.add(SowEvent.RelayPause(current))
             hand = board[current]
@@ -103,7 +112,7 @@ class SowingEngine(
             } else {
                 // Impossible while 4 or more seeds stay on the board. Treated like the step limit.
                 logger.error("Both sides are empty before the game ended (start pit $startPit).")
-                if (outcome != TurnOutcome.STEP_LIMIT) {
+                if (outcome == TurnOutcome.TURN_ENDED) {
                     events?.add(SowEvent.StepLimitReached)
                     outcome = TurnOutcome.STEP_LIMIT
                 }
@@ -146,6 +155,15 @@ class SowingEngine(
         if (state.pits[pit] == 0) {
             throw IllegalMoveException("Pit $pit is empty.")
         }
+    }
+
+    private fun landingKey(board: IntArray, landingPit: Int): List<Int> {
+        val key = ArrayList<Int>(board.size + 1)
+        for (count in board) {
+            key.add(count)
+        }
+        key.add(landingPit)
+        return key
     }
 
     private fun seedsOnSide(board: IntArray, player: Player): Int {

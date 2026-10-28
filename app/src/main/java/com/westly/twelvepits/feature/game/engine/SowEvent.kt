@@ -27,6 +27,13 @@ sealed class SowEvent {
         val leftoverInHand: Int,
     ) : SowEvent()
 
+    /**
+     * The endless relay rule (RULES.md section 4): the whole board and the landing pit are exactly
+     * the same as at an earlier landing in this turn, so the turn ends here. It replaces the
+     * RelayPause and PickUp that would have come next. No seeds are in hand.
+     */
+    data object LoopStopped : SowEvent()
+
     /** The engineering safety net fired. Never expected in normal play. */
     data object StepLimitReached : SowEvent()
 }

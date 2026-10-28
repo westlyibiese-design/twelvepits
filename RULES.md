@@ -52,6 +52,7 @@ When the last seed of a sowing lands:
 - **In a pit that already had seeds** (either side): pick up **all** the seeds in that pit, including the one you just dropped, and keep sowing from the next pit.
 - This repeats until the last seed lands in an empty pit, or the last seed makes a capture (section 5).
 - Pits with 12 or more seeds follow the same rule. There is no special case.
+- **Endless relay (very rare):** in a few positions the relay never ends, because the same board comes back again and again with no capture. If the last seed lands in a pit that already had seeds, and the whole board and that pit are **exactly the same as at an earlier landing in the same turn**, the turn ends at that moment. No more seeds are sown, nothing more is captured, and play passes to the other player as usual (section 6). This rule never applies to a normal turn.
 
 ## 5. Capture
 
@@ -106,6 +107,8 @@ sowTurn(startPit):                      // startPit is one of the current player
                 if seeds == 0: return END_TURN     // last seed made a capture: turn ends
         // last seed has landed on `current`
         if board[current] == 1: return END_TURN    // pit was empty: turn ends
+        if (board, current) already seen this turn: return END_TURN   // endless relay (section 4)
+        remember (board, current) for this turn
         seeds = board[current]; board[current] = 0 // relay: pick up the whole pit
         // continue the loop and sow from the next pit
 ```
@@ -114,7 +117,7 @@ sowTurn(startPit):                      // startPit is one of the current player
 
 After `END_TURN`, switch players. If the new current player has no seeds in their 6 pits, skip their turn and show the message and sound.
 
-**Engineering note (not a game rule):** add a very high step limit in the relay loop (for example 10,000 sowing steps in one turn) only to stop the app from freezing if there is a bug. If it is ever reached, log an error. It must never be reached in normal play.
+**Engineering note (not a game rule):** the endless relay rule above already stops every endless turn, so this limit is only a last safety net. Add a very high step limit in the relay loop (for example 10,000 sowing steps in one turn) only to stop the app from freezing if there is a bug. If it is ever reached, log an error. It must never be reached in normal play.
 
 ## 9. Test cases (the engine must pass all of these)
 
@@ -142,6 +145,9 @@ Expected end state: p3 = 1 and every other pit = 2. Every pit, including the sta
 **Test 8: alternating starter.** Game 1 starts with Player 1 and is played to the end. Game 2 must start with Player 2, game 3 with Player 1. After closing and reopening the app, the next game still starts with the other player. Pressing Restart in the middle of a game keeps the same starter.
 
 **Test 9: save and resume.** Play 5 turns, close the app, reopen it. The Continue button appears, and the board, both stores, whose turn it is and the starting player are exactly the same as before closing. When that game ends, the Continue button disappears.
+
+**Test 10: endless relay.** Player 1 to play pit 1. Pits p0 to p11 hold `1, 3, 1, 0, 1, 0, 2, 1, 0, 1, 0, 2`. Player 1's store holds 20 and Player 2's store holds 16.
+Expected: after 159 sowing steps the board repeats, the turn ends, no seed is lost (the pits then hold `1, 0, 2, 1, 2, 0, 2, 1, 0, 1, 0, 2`, the stores still hold 20 and 16) and it is Player 2's turn.
 
 ## 10. Saving the game and scores
 

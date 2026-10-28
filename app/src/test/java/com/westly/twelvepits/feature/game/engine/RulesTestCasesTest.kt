@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Tests 1 to 7 of RULES.md section 9, with the numbers given there. */
+/** Tests 1 to 7 and 10 of RULES.md section 9, with the numbers given there. */
 class RulesTestCasesTest {
     private val engine = SowingEngine()
 
@@ -182,6 +182,34 @@ class RulesTestCasesTest {
         assertEquals(Player.TWO, result.newState.winner)
         assertEquals(SowEvent.GameOver(Player.TWO, 20, 24, 0), result.events.last())
         assertTrue(result.newState.isValid())
+    }
+
+    @Test
+    fun test10_endlessRelay() {
+        // Found by the random playouts: with RULES.md before the endless relay rule this turn never ended.
+        val state = boardState(
+            listOf(1, 3, 1, 0, 1, 0, 2, 1, 0, 1, 0, 2),
+            storeOne = 20,
+            storeTwo = 16,
+        )
+        val result = engine.playTurn(state, 1)
+        val end = result.newState
+
+        assertEquals(TurnOutcome.LOOP_STOPPED, result.outcome)
+        assertEquals(listOf(1, 0, 2, 1, 2, 0, 2, 1, 0, 1, 0, 2), end.pits)
+        assertEquals(20, end.storeOne)
+        assertEquals(16, end.storeTwo)
+        assertEquals(Player.TWO, end.currentPlayer)
+        assertEquals(GameStatus.IN_PROGRESS, end.status)
+        assertEquals(0, result.capturedForMover)
+        assertEquals(0, result.capturedForOpponent)
+        assertEquals(159, result.events.count { it is SowEvent.Drop })
+        assertEquals(60, result.events.count { it is SowEvent.RelayPause })
+        assertEquals(SowEvent.LoopStopped, result.events.last())
+        assertTrue(result.events.none { it is SowEvent.StepLimitReached })
+        assertEquals(48, end.pits.sum() + end.storeOne + end.storeTwo + end.leftoverInHand)
+        assertTrue(end.isValid())
+        assertEquals(end, engine.simulate(state, 1))
     }
 
     @Test
