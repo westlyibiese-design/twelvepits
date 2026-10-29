@@ -38,6 +38,12 @@ val CaptureGlow = Emerald
 /** Colour of the "+4" that floats up from a store. */
 val PlusFloat = LightGold
 
+/** Player name under a store: ivory, slightly soft. */
+val StoreNameText = Ivory.copy(alpha = 0.92f)
+
+/** Dark shadow that keeps the player name readable on the wood. */
+val StoreNameShadow = Color(0xCC000000)
+
 /** Shadow under the board on the table. */
 val BoardShadow = Color(0xA6000000)
 

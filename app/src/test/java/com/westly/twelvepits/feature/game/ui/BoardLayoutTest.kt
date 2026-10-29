@@ -16,9 +16,9 @@ class BoardLayoutTest {
     // ---- The board rectangle ----
 
     @Test
-    fun aNormalPhoneGetsAboutNinetySixPercentOfTheWidth() {
+    fun aNormalPhoneGetsTheWholeWidth() {
         val board = rect(2400f, 1080f)
-        assertEquals(0.96f * 2400f, board.width, 0.5f)
+        assertEquals(2400f, board.width, 0.5f)
         assertEquals(board.width / aspect, board.height, 0.5f)
         assertEquals((2400f - board.width) / 2f, board.left, 0.5f)
         assertEquals((1080f - board.height) / 2f, board.top, 0.5f)
@@ -38,7 +38,7 @@ class BoardLayoutTest {
             val board = rect(w, h)
             assertEquals("$w x $h", aspect, board.width / board.height, 0.001f)
             assertTrue("$w x $h", board.height <= 0.62f * 0.96f * h + 0.5f)
-            assertTrue("$w x $h", board.width <= 0.96f * w + 0.5f)
+            assertTrue("$w x $h", board.width <= w + 0.5f)
             assertTrue("$w x $h", board.left >= 0f && board.top >= 0f)
         }
     }
@@ -47,15 +47,15 @@ class BoardLayoutTest {
     fun theBoardIsCentredInTheSafeAreaNotInTheWholeScreen() {
         val board = rect(2400f, 1080f, left = 120f, top = 0f, right = 0f, bottom = 0f)
         val safeWidth = 2400f - 120f
-        assertEquals(0.96f * safeWidth, board.width, 0.5f)
+        assertEquals(safeWidth, board.width, 0.5f)
         assertEquals(120f + safeWidth / 2f, board.left + board.width / 2f, 0.5f)
-        assertTrue(board.left >= 120f)
+        assertTrue(board.left >= 120f - 0.01f)
     }
 
     @Test
     fun aWindowTallerThanWideStillShowsTheBoardCentredAndScaledToFit() {
         val board = rect(1080f, 2400f)
-        assertEquals(0.96f * 1080f, board.width, 0.5f)
+        assertEquals(1080f, board.width, 0.5f)
         assertEquals(aspect, board.width / board.height, 0.001f)
         assertEquals(1080f / 2f, board.left + board.width / 2f, 0.5f)
         assertEquals(2400f / 2f, board.top + board.height / 2f, 0.5f)

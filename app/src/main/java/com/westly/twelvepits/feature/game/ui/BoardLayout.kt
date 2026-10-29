@@ -17,15 +17,17 @@ class BoardRect(val left: Float, val top: Float, val width: Float, val height: F
 
 /** Where the board is drawn (pure Kotlin, unit tested). */
 object BoardLayoutMath {
-    /** The board is about 96% of the safe width on normal phones. */
-    const val WIDTH_OF_SAFE_AREA = 0.96f
+    /** The board uses the whole safe width: edge to edge, but never under the camera cut-out. */
+    const val WIDTH_OF_SAFE_AREA = 1.0f
 
     /** The board is never taller than about this share of the screen height (before the 0.96). */
     const val HEIGHT_OF_SCREEN = 0.62f
 
+    private const val HEIGHT_SHARE = 0.96f
+
     /**
      * The board rectangle: centred in the safe area (screen minus cut-out and rounded corner insets),
-     * never stretched, width = min(0.96 x safe width, 0.96 x 0.62 x screen height x aspect ratio).
+     * never stretched, width = min(safe width, 0.96 x 0.62 x screen height x aspect ratio).
      * It also fits a window that is taller than wide.
      */
     fun boardRect(
@@ -41,7 +43,7 @@ object BoardLayoutMath {
         val safeHeight = max(1f, screenHeight - safeTop - safeBottom)
         val width = max(
             1f,
-            min(WIDTH_OF_SAFE_AREA * safeWidth, WIDTH_OF_SAFE_AREA * HEIGHT_OF_SCREEN * screenHeight * aspectRatio),
+            min(WIDTH_OF_SAFE_AREA * safeWidth, HEIGHT_SHARE * HEIGHT_OF_SCREEN * screenHeight * aspectRatio),
         )
         val height = width / aspectRatio
         val centerX = safeLeft + safeWidth / 2f

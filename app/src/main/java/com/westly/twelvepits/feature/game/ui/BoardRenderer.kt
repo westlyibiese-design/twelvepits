@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -16,6 +17,9 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -30,6 +34,8 @@ import com.westly.twelvepits.core.theme.GameDimens
 import com.westly.twelvepits.core.theme.Ink
 import com.westly.twelvepits.core.theme.PlusFloat
 import com.westly.twelvepits.core.theme.RelayGlow
+import com.westly.twelvepits.core.theme.StoreNameShadow
+import com.westly.twelvepits.core.theme.StoreNameText
 import com.westly.twelvepits.core.theme.SeedShadow
 import com.westly.twelvepits.core.theme.TurnGlow
 import com.westly.twelvepits.feature.game.engine.GameState
@@ -54,6 +60,7 @@ internal class BoardRenderer(
     private val screenHeight: Float,
     density: Density,
     private val measurer: TextMeasurer,
+    playerNames: List<String>,
 ) {
     private val dp: Float = density.density
     private val boardW: Float = board.width
@@ -112,6 +119,19 @@ internal class BoardRenderer(
     private val handLayouts = arrayOfNulls<TextLayoutResult>(MAX_CACHED_NUMBER + 1)
     private var plusLayout: TextLayoutResult? = null
 
+    // The player's name in small text just under that player's store. Indexed by Player.ordinal.
+    private val nameStyle = TextStyle(
+        fontFamily = BodyFont,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = with(density) { (storeBadgeDiameter * NAME_TEXT_SCALE).toSp() },
+        color = StoreNameText,
+        textAlign = TextAlign.Center,
+        shadow = Shadow(color = StoreNameShadow, offset = Offset(0f, 2f * dp), blurRadius = 4f * dp),
+    )
+    private val nameMaxWidth: Int = (geometry.storeOuterRadiusW * 2f * boardW * NAME_WIDTH_SHARE).roundToInt().coerceAtLeast(1)
+    private val nameLayouts = arrayOfNulls<TextLayoutResult>(BoardDisplayState.PLAYER_COUNT)
+    private val nameGap: Float = NAME_GAP_W * boardW
+
     // Glow rings.
     private val pitRingRadius: Float = (geometry.pitOuterRingRadiusW + RING_MARGIN_W) * boardW
     private val storeRingRadius: Float = (geometry.storeOuterRadiusW + RING_MARGIN_W) * boardW
@@ -161,6 +181,18 @@ internal class BoardRenderer(
             handOffsetY[i] = SeedLayout.offsetY(i, HAND_KEY, handSpread, HAND_SLOTS)
             handRotation[i] = SeedLayout.rotationDegrees(i, HAND_KEY) + HAND_TILT_DEGREES
         }
+        for (o in 0 until BoardDisplayState.PLAYER_COUNT) {
+            val name = playerNames.getOrNull(o)?.trim().orEmpty()
+            if (name.isNotEmpty()) {
+                nameLayouts[o] = measurer.measure(
+                    text = name,
+                    style = nameStyle,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                    constraints = Constraints(maxWidth = nameMaxWidth),
+                )
+            }
+        }
         val image = backgroundImage
         if (image != null) {
             val scale = max(screenWidth / image.width, screenHeight / image.height)
@@ -181,6 +213,7 @@ internal class BoardRenderer(
         drawStoreSeeds(display)
         drawGlows(display, pulse)
         drawBadges(display)
+        drawStoreNames()
         drawCaptureFly(display)
         drawHand(display)
         drawHop(display)
@@ -316,6 +349,18 @@ internal class BoardRenderer(
         }
     }
 
+    /** The names sit just under the store badges, centred on the store. */
+    private fun DrawScope.drawStoreNames() {
+        for (o in 0 until BoardDisplayState.PLAYER_COUNT) {
+            val layout = nameLayouts[o] ?: continue
+            val top = storeBadgeY[o] + storeBadgeDiameter / 2f + nameGap
+            drawText(
+                textLayoutResult = layout,
+                topLeft = Offset(storeX[o] - layout.size.width / 2f, top),
+            )
+        }
+    }
+
     private fun DrawScope.drawBadge(cx: Float, cy: Float, diameter: Float, text: TextLayoutResult, alpha: Float) {
         val center = Offset(cx, cy)
         val radius = diameter / 2f
@@ -446,6 +491,9 @@ internal class BoardRenderer(
         // The badge number is about 0.536 of the badge diameter (0.0145 / 0.027 of the board width for pits).
         const val NUMBER_TEXT_SCALE = 0.536f
         const val PLUS_TEXT_SCALE = 0.70f
+        const val NAME_TEXT_SCALE = 0.33f
+        const val NAME_WIDTH_SHARE = 0.90f
+        const val NAME_GAP_W = 0.004f
 
         const val HAND_SLOTS = 5
         const val HAND_KEY = 30

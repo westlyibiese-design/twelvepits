@@ -147,7 +147,8 @@ private fun GameBoardLayer(
                 seedLengthPx.roundToInt(),
             )
         }
-        val renderer = remember(assets, board, seedImage, mapper, widthPx, heightPx, density, measurer) {
+        val playerNames = listOf(viewModel.config.player1Name, viewModel.config.player2Name)
+        val renderer = remember(assets, board, seedImage, mapper, widthPx, heightPx, density, measurer, playerNames) {
             BoardRenderer(
                 geometry = geometry,
                 mapper = mapper,
@@ -159,6 +160,7 @@ private fun GameBoardLayer(
                 screenHeight = heightPx,
                 density = density,
                 measurer = measurer,
+                playerNames = playerNames,
             )
         }
         val minTapRadius = with(density) { GameDimens.MinPitTapRadius.toPx() }
