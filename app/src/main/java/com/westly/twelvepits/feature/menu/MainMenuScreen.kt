@@ -8,10 +8,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -122,18 +125,18 @@ fun MainMenuScreen(
                 modifier = Modifier.alpha(reveal[1].value),
             )
             Row(
-                modifier = Modifier.fillMaxWidth().alpha(reveal[2].value),
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min).alpha(reveal[2].value),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 OutlinedGoldButton(
                     text = stringResource(R.string.menu_how_to_play),
                     onClick = onHowToPlay,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
                 OutlinedGoldButton(
                     text = stringResource(R.string.menu_settings),
                     onClick = onSettings,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
             }
             BasicText(

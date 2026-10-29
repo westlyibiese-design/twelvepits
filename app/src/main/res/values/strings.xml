@@ -80,4 +80,47 @@
     <string name="mode_name_vs_computer">Against the computer</string>
     <string name="mode_name_two_players">Two players on one phone</string>
     <string name="mode_name_two_phones">Two phones</string>
+
+    <!-- Game screen -->
+    <string name="game_back_description">Back to the menu</string>
+    <string name="game_pause_description">Pause the game</string>
+    <string name="game_sound_description">Sound on or off</string>
+    <string name="game_show_controls_description">Show the game controls</string>
+    <string name="game_turn_skipped">%1$s has no seeds. Turn skipped.</string>
+    <string name="game_settings_done">DONE</string>
+    <string name="dialog_cancel">Cancel</string>
+
+    <!-- Pause menu -->
+    <string name="pause_title">Paused</string>
+    <string name="pause_move">Move %1$d</string>
+    <string name="pause_resume">RESUME</string>
+    <string name="pause_restart">Restart</string>
+    <string name="pause_settings">Settings</string>
+    <string name="pause_quit">Quit to menu</string>
+
+    <!-- Questions in the game (Replaced in Phase 5: the game is saved then) -->
+    <string name="leave_title">Leave the game?</string>
+    <string name="leave_message">Your progress will be lost.</string>
+    <string name="leave_stay">Stay</string>
+    <string name="leave_leave">Leave</string>
+    <string name="restart_title">Restart the game?</string>
+    <string name="restart_message">The game starts again from the beginning with the same players.</string>
+    <string name="quit_title">Quit to menu?</string>
+    <string name="quit_message">Your progress will be lost.</string>
+    <string name="quit_confirm">Quit</string>
+
+    <!-- Game over (Replaced in Phase 5: the result screen) -->
+    <string name="game_over_title">Game over</string>
+    <string name="game_over_message">%1$s wins: %2$d to %3$d</string>
+    <string name="game_over_ok">OK</string>
+
+    <!-- The board could not be loaded -->
+    <string name="game_error_title">The board could not be loaded</string>
+    <string name="game_error_geometry_missing">The board data file is missing. Please reinstall the game.</string>
+    <string name="game_error_geometry_invalid">The board data file is not valid. Please reinstall the game.</string>
+    <string name="game_error_image_missing">A board picture could not be read. Please reinstall the game.</string>
+    <string name="game_error_detail">Details: %1$s</string>
+
+    <!-- Play the computer (Replaced in Phase 5) -->
+    <string name="coming_next_phase">Coming in the next phase</string>
 </resources>

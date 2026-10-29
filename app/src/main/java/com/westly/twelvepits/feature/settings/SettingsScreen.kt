@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.westly.twelvepits.R
@@ -45,6 +46,31 @@ fun SettingsScreen(
     sound: SoundManager,
     onBack: () -> Unit,
 ) {
+    ScreenScaffold(title = stringResource(R.string.settings_title), onBack = onBack) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp),
+        ) {
+            SettingsControls(settings = settings, sound = sound)
+        }
+        Footer(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp))
+    }
+}
+
+/**
+ * The settings rows (music, music volume, sound effects, vibration, seed speed) with their saved values.
+ * Used by the Settings screen and by the Settings panel of the pause menu, so both always agree.
+ */
+@Composable
+fun SettingsControls(
+    settings: SettingsStore,
+    sound: SoundManager,
+    modifier: Modifier = Modifier,
+    rowMinHeight: Dp = 64.dp,
+) {
     val musicOn by settings.musicEnabled
         .collectAsStateWithLifecycle(initialValue = SettingsStore.DEFAULT_MUSIC_ENABLED)
     val savedVolume by settings.musicVolume
@@ -58,73 +84,68 @@ fun SettingsScreen(
     var draggedVolume by remember { mutableStateOf<Float?>(null) }
     val scope = rememberCoroutineScope()
 
-    ScreenScaffold(title = stringResource(R.string.settings_title), onBack = onBack) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
-        ) {
-            SettingRow(label = stringResource(R.string.settings_music)) {
-                GoldSwitch(
-                    checked = musicOn,
-                    onCheckedChange = { scope.launch { settings.setMusicEnabled(it) } },
-                )
-            }
-            Divider()
-            SettingRow(label = stringResource(R.string.settings_music_volume), labelWeight = 0.4f) {
-                GoldSlider(
-                    value = draggedVolume ?: savedVolume,
-                    description = stringResource(R.string.settings_music_volume),
-                    onValueChange = {
-                        draggedVolume = it
-                        sound.previewMusicVolume(it)
-                    },
-                    onValueChangeFinished = {
-                        val chosen = draggedVolume
-                        if (chosen != null) {
-                            scope.launch {
-                                settings.setMusicVolume(chosen)
-                                draggedVolume = null
-                            }
-                        }
-                    },
-                    modifier = Modifier.weight(0.6f),
-                )
-            }
-            Divider()
-            SettingRow(label = stringResource(R.string.settings_sound_effects)) {
-                GoldSwitch(
-                    checked = effectsOn,
-                    onCheckedChange = { scope.launch { settings.setSoundEffectsEnabled(it) } },
-                )
-            }
-            Divider()
-            SettingRow(label = stringResource(R.string.settings_vibration)) {
-                GoldSwitch(
-                    checked = vibrationOn,
-                    onCheckedChange = { scope.launch { settings.setVibrationEnabled(it) } },
-                )
-            }
-            Divider()
-            BasicText(
-                text = stringResource(R.string.settings_seed_speed),
-                style = TwelvePitsType.label,
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-            )
-            val speeds = SeedSpeed.entries
-            SegmentedSelector(
-                options = listOf(
-                    stringResource(R.string.seed_speed_slow),
-                    stringResource(R.string.seed_speed_normal),
-                    stringResource(R.string.seed_speed_fast),
-                ),
-                selectedIndex = speeds.indexOf(SeedSpeed.fromHopSeconds(hopSeconds)),
-                onSelected = { scope.launch { settings.setSeedSpeed(speeds[it]) } },
+    Column(modifier = modifier.fillMaxWidth()) {
+        SettingRow(label = stringResource(R.string.settings_music), minHeight = rowMinHeight) {
+            GoldSwitch(
+                checked = musicOn,
+                onCheckedChange = { scope.launch { settings.setMusicEnabled(it) } },
             )
         }
-        Footer(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp))
+        Divider()
+        SettingRow(
+            label = stringResource(R.string.settings_music_volume),
+            labelWeight = 0.4f,
+            minHeight = rowMinHeight,
+        ) {
+            GoldSlider(
+                value = draggedVolume ?: savedVolume,
+                description = stringResource(R.string.settings_music_volume),
+                onValueChange = {
+                    draggedVolume = it
+                    sound.previewMusicVolume(it)
+                },
+                onValueChangeFinished = {
+                    val chosen = draggedVolume
+                    if (chosen != null) {
+                        scope.launch {
+                            settings.setMusicVolume(chosen)
+                            draggedVolume = null
+                        }
+                    }
+                },
+                modifier = Modifier.weight(0.6f),
+            )
+        }
+        Divider()
+        SettingRow(label = stringResource(R.string.settings_sound_effects), minHeight = rowMinHeight) {
+            GoldSwitch(
+                checked = effectsOn,
+                onCheckedChange = { scope.launch { settings.setSoundEffectsEnabled(it) } },
+            )
+        }
+        Divider()
+        SettingRow(label = stringResource(R.string.settings_vibration), minHeight = rowMinHeight) {
+            GoldSwitch(
+                checked = vibrationOn,
+                onCheckedChange = { scope.launch { settings.setVibrationEnabled(it) } },
+            )
+        }
+        Divider()
+        BasicText(
+            text = stringResource(R.string.settings_seed_speed),
+            style = TwelvePitsType.label,
+            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+        )
+        val speeds = SeedSpeed.entries
+        SegmentedSelector(
+            options = listOf(
+                stringResource(R.string.seed_speed_slow),
+                stringResource(R.string.seed_speed_normal),
+                stringResource(R.string.seed_speed_fast),
+            ),
+            selectedIndex = speeds.indexOf(SeedSpeed.fromHopSeconds(hopSeconds)),
+            onSelected = { scope.launch { settings.setSeedSpeed(speeds[it]) } },
+        )
     }
 }
 
@@ -132,10 +153,11 @@ fun SettingsScreen(
 private fun SettingRow(
     label: String,
     labelWeight: Float = 1f,
+    minHeight: Dp = 64.dp,
     control: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = minHeight),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

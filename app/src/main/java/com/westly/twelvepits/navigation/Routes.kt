@@ -17,9 +17,9 @@ object Routes {
     const val HOW_TO_PLAY = "how_to_play"
     const val SETTINGS = "settings"
 
-    // Replaced in Phase 4
-    const val TEMP_GAME_PATTERN =
-        "temp_game?mode={mode}&difficulty={difficulty}&p1={p1}&a1={a1}&p2={p2}&a2={a2}"
+    /** The game screen (landscape). Every other route is portrait. */
+    const val GAME_PATTERN =
+        "game?mode={mode}&difficulty={difficulty}&p1={p1}&a1={a1}&p2={p2}&a2={a2}"
 
     const val ARG_MODE = "mode"
     const val ARG_DIFFICULTY = "difficulty"
@@ -28,9 +28,12 @@ object Routes {
     const val ARG_P2 = "p2"
     const val ARG_A2 = "a2"
 
-    /** The temporary screen's route for a chosen configuration. Names are encoded so any text is safe. */
-    fun tempGame(config: GameConfig): String =
-        "temp_game?mode=${config.mode.name}" +
+    /** True for the game screen's route, the only landscape screen. */
+    fun isGame(route: String?): Boolean = route != null && route.startsWith("game?")
+
+    /** The game screen's route for a chosen configuration. Names are encoded so any text is safe. */
+    fun game(config: GameConfig): String =
+        "game?mode=${config.mode.name}" +
             "&difficulty=${config.difficulty.name}" +
             "&p1=${Uri.encode(config.player1Name)}&a1=${config.player1Avatar.name}" +
             "&p2=${Uri.encode(config.player2Name)}&a2=${config.player2Avatar.name}"
