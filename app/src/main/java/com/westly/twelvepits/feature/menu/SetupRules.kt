@@ -11,7 +11,7 @@ enum class SetupKind { COMPUTER, TWO_PLAYERS }
 const val MAX_NAME_LENGTH = 12
 
 /** The avatars a player can choose. The leopard belongs to the computer only. */
-val SelectableAvatars: List<AvatarId> = listOf(AvatarId.OBA, AvatarId.IYOBA, AvatarId.WARRIOR)
+val SelectableAvatars: List<AvatarId> = listOf(AvatarId.KING, AvatarId.QUEEN, AvatarId.WARRIOR)
 
 /** While typing: never more than [MAX_NAME_LENGTH] characters. */
 fun limitTypedName(raw: String): String = raw.take(MAX_NAME_LENGTH)

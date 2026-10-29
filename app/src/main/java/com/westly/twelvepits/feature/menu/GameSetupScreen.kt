@@ -89,7 +89,7 @@ private fun ColumnScope.ComputerSetupForm(
     val defaultName = stringResource(R.string.default_name_you)
     val computerName = stringResource(R.string.computer_name)
     var name by rememberSaveable { mutableStateOf(limitTypedName(choices.computerPlayerName ?: defaultName)) }
-    var avatar by rememberSaveable { mutableStateOf(selectableOrDefault(choices.computerPlayerAvatar, AvatarId.OBA)) }
+    var avatar by rememberSaveable { mutableStateOf(selectableOrDefault(choices.computerPlayerAvatar, AvatarId.KING)) }
     var difficulty by rememberSaveable { mutableStateOf(choices.difficulty) }
     var starting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -133,8 +133,8 @@ private fun ColumnScope.TwoPlayerSetupForm(
 ) {
     val defaultOne = stringResource(R.string.default_name_player1)
     val defaultTwo = stringResource(R.string.default_name_player2)
-    val savedOne = selectableOrDefault(choices.player1Avatar, AvatarId.OBA)
-    val savedTwo = resolveAvatarClash(savedOne, selectableOrDefault(choices.player2Avatar, AvatarId.IYOBA))
+    val savedOne = selectableOrDefault(choices.player1Avatar, AvatarId.KING)
+    val savedTwo = resolveAvatarClash(savedOne, selectableOrDefault(choices.player2Avatar, AvatarId.QUEEN))
     var nameOne by rememberSaveable { mutableStateOf(limitTypedName(choices.player1Name ?: defaultOne)) }
     var nameTwo by rememberSaveable { mutableStateOf(limitTypedName(choices.player2Name ?: defaultTwo)) }
     var avatarOne by rememberSaveable { mutableStateOf(savedOne) }

@@ -119,18 +119,12 @@ internal class BoardRenderer(
     private val handLayouts = arrayOfNulls<TextLayoutResult>(MAX_CACHED_NUMBER + 1)
     private var plusLayout: TextLayoutResult? = null
 
-    // The player's name in small text just under that player's store. Indexed by Player.ordinal.
-    private val nameStyle = TextStyle(
-        fontFamily = BodyFont,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = with(density) { (storeBadgeDiameter * NAME_TEXT_SCALE).toSp() },
-        color = StoreNameText,
-        textAlign = TextAlign.Center,
-        shadow = Shadow(color = StoreNameShadow, offset = Offset(0f, 2f * dp), blurRadius = 4f * dp),
-    )
-    private val nameMaxWidth: Int = (geometry.storeOuterRadiusW * 2f * boardW * NAME_WIDTH_SHARE).roundToInt().coerceAtLeast(1)
+    // The player's name sits in the table margin beside the board, on that player's own side.
+    // Indexed by Player.ordinal.
+    private val nameMaxWidth: Int = (boardW * NAME_WIDTH_OF_BOARD).roundToInt().coerceAtLeast(1)
     private val nameLayouts = arrayOfNulls<TextLayoutResult>(BoardDisplayState.PLAYER_COUNT)
-    private val nameGap: Float = NAME_GAP_W * boardW
+    private val nameX = FloatArray(BoardDisplayState.PLAYER_COUNT)
+    private val nameY = FloatArray(BoardDisplayState.PLAYER_COUNT)
 
     // Glow rings.
     private val pitRingRadius: Float = (geometry.pitOuterRingRadiusW + RING_MARGIN_W) * boardW
@@ -181,17 +175,31 @@ internal class BoardRenderer(
             handOffsetY[i] = SeedLayout.offsetY(i, HAND_KEY, handSpread, HAND_SLOTS)
             handRotation[i] = SeedLayout.rotationDegrees(i, HAND_KEY) + HAND_TILT_DEGREES
         }
+        val boardBottom = board.top + board.height
+        val boardCenterY = board.top + board.height / 2f
         for (o in 0 until BoardDisplayState.PLAYER_COUNT) {
             val name = playerNames.getOrNull(o)?.trim().orEmpty()
-            if (name.isNotEmpty()) {
-                nameLayouts[o] = measurer.measure(
-                    text = name,
-                    style = nameStyle,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1,
-                    constraints = Constraints(maxWidth = nameMaxWidth),
-                )
-            }
+            if (name.isEmpty()) continue
+            // The name goes in the margin on the side of the board where this player's pits are.
+            val firstPit = o * GameState.PITS_PER_SIDE
+            var pitRowY = 0f
+            for (pit in firstPit until firstPit + GameState.PITS_PER_SIDE) pitRowY += pitY[pit]
+            pitRowY /= GameState.PITS_PER_SIDE
+            val above = pitRowY < boardCenterY
+            val bandTop = if (above) 0f else boardBottom
+            val bandHeight = max(1f, if (above) board.top else screenHeight - boardBottom)
+            val fontPx = max(min(NAME_FONT_W * boardW, bandHeight * NAME_BAND_SHARE), NAME_MIN_DP * dp)
+            val layout = measurer.measure(
+                text = name,
+                style = nameStyle(fontPx, density),
+                overflow = TextOverflow.Ellipsis,
+                maxLines = 1,
+                constraints = Constraints(maxWidth = nameMaxWidth),
+            )
+            nameLayouts[o] = layout
+            nameX[o] = board.x(0.5f) - layout.size.width / 2f
+            val centeredY = bandTop + (bandHeight - layout.size.height) / 2f
+            nameY[o] = centeredY.coerceIn(0f, max(0f, screenHeight - layout.size.height))
         }
         val image = backgroundImage
         if (image != null) {
@@ -213,7 +221,7 @@ internal class BoardRenderer(
         drawStoreSeeds(display)
         drawGlows(display, pulse)
         drawBadges(display)
-        drawStoreNames()
+        drawPlayerNames()
         drawCaptureFly(display)
         drawHand(display)
         drawHop(display)
@@ -349,15 +357,11 @@ internal class BoardRenderer(
         }
     }
 
-    /** The names sit just under the store badges, centred on the store. */
-    private fun DrawScope.drawStoreNames() {
+    /** The names sit in the table margin beside the board, centred on it, each on its own player's side. */
+    private fun DrawScope.drawPlayerNames() {
         for (o in 0 until BoardDisplayState.PLAYER_COUNT) {
             val layout = nameLayouts[o] ?: continue
-            val top = storeBadgeY[o] + storeBadgeDiameter / 2f + nameGap
-            drawText(
-                textLayoutResult = layout,
-                topLeft = Offset(storeX[o] - layout.size.width / 2f, top),
-            )
+            drawText(textLayoutResult = layout, topLeft = Offset(nameX[o], nameY[o]))
         }
     }
 
@@ -469,6 +473,15 @@ internal class BoardRenderer(
         return cache[count] ?: measurer.measure(count.toString(), style).also { cache[count] = it }
     }
 
+    private fun nameStyle(fontPx: Float, density: Density): TextStyle = TextStyle(
+        fontFamily = BodyFont,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = with(density) { fontPx.toSp() },
+        color = StoreNameText,
+        textAlign = TextAlign.Center,
+        shadow = Shadow(color = StoreNameShadow, offset = Offset(0f, 2f * dp), blurRadius = 4f * dp),
+    )
+
     private fun numberStyle(diameter: Float, density: Density): TextStyle = TextStyle(
         fontFamily = BodyFont,
         fontWeight = FontWeight.Bold,
@@ -491,9 +504,11 @@ internal class BoardRenderer(
         // The badge number is about 0.536 of the badge diameter (0.0145 / 0.027 of the board width for pits).
         const val NUMBER_TEXT_SCALE = 0.536f
         const val PLUS_TEXT_SCALE = 0.70f
-        const val NAME_TEXT_SCALE = 0.33f
-        const val NAME_WIDTH_SHARE = 0.90f
-        const val NAME_GAP_W = 0.004f
+        // Player names in the table margin: a share of the board width, kept inside the margin band.
+        const val NAME_FONT_W = 0.030f
+        const val NAME_BAND_SHARE = 0.45f
+        const val NAME_MIN_DP = 10f
+        const val NAME_WIDTH_OF_BOARD = 0.5f
 
         const val HAND_SLOTS = 5
         const val HAND_KEY = 30

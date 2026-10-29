@@ -29,9 +29,9 @@ class SetupRulesTest {
     @Test
     fun leopardIsNeverSelectable() {
         assertTrue(AvatarId.LEOPARD !in SelectableAvatars)
-        assertEquals(AvatarId.OBA, selectableOrDefault(AvatarId.LEOPARD, AvatarId.OBA))
-        assertEquals(AvatarId.OBA, selectableOrDefault(null, AvatarId.OBA))
-        assertEquals(AvatarId.WARRIOR, selectableOrDefault(AvatarId.WARRIOR, AvatarId.OBA))
+        assertEquals(AvatarId.KING, selectableOrDefault(AvatarId.LEOPARD, AvatarId.KING))
+        assertEquals(AvatarId.KING, selectableOrDefault(null, AvatarId.KING))
+        assertEquals(AvatarId.WARRIOR, selectableOrDefault(AvatarId.WARRIOR, AvatarId.KING))
     }
 
     @Test
@@ -41,7 +41,7 @@ class SetupRulesTest {
                 assertNotEquals(first, resolveAvatarClash(first, second))
             }
         }
-        assertEquals(AvatarId.IYOBA, resolveAvatarClash(AvatarId.OBA, AvatarId.IYOBA))
+        assertEquals(AvatarId.QUEEN, resolveAvatarClash(AvatarId.KING, AvatarId.QUEEN))
     }
 
     @Test
@@ -56,9 +56,9 @@ class SetupRulesTest {
 
     @Test
     fun twoPlayerGameKeepsBothChoices() {
-        val config = twoPlayerGameConfig("Ada", AvatarId.OBA, "Bayo", AvatarId.IYOBA)
+        val config = twoPlayerGameConfig("Ada", AvatarId.KING, "Bayo", AvatarId.QUEEN)
         assertEquals(GameMode.TWO_PLAYERS_ONE_PHONE, config.mode)
         assertEquals("Ada", config.player1Name)
-        assertEquals(AvatarId.IYOBA, config.player2Avatar)
+        assertEquals(AvatarId.QUEEN, config.player2Avatar)
     }
 }
