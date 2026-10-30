@@ -15,8 +15,8 @@ import com.westly.twelvepits.core.model.GameMode
 import com.westly.twelvepits.core.model.Player
 import com.westly.twelvepits.core.storage.SettingsStore
 import com.westly.twelvepits.feature.game.ai.ComputerPlayer
+import com.westly.twelvepits.feature.game.ai.ComputerPlayers
 import com.westly.twelvepits.feature.game.ai.ComputerTurnScheduler
-import com.westly.twelvepits.feature.game.ai.RandomLegalMovePlayer
 import com.westly.twelvepits.feature.game.data.GameStart
 import com.westly.twelvepits.feature.game.data.PlayClock
 import com.westly.twelvepits.feature.game.data.SavedGame
@@ -525,9 +525,9 @@ class GameViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         require(modelClass.isAssignableFrom(GameViewModel::class.java)) { "Unknown ViewModel class" }
-        // Replaced in Phase 6: the smart computer players (Easy, Normal, Hard).
+        // The difficulty comes from the config, so a game restored by Continue keeps its level.
         val computer: ComputerPlayer? =
-            if (config.mode == GameMode.VS_COMPUTER) RandomLegalMovePlayer() else null
+            if (config.mode == GameMode.VS_COMPUTER) ComputerPlayers.forDifficulty(config.difficulty) else null
         return GameViewModel(config, startMode, settings, sound, savedGames, computer) as T
     }
 }

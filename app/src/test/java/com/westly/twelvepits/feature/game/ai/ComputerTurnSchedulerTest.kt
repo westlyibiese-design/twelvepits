@@ -189,6 +189,51 @@ class ComputerTurnSchedulerTest {
     }
 
     @Test
+    fun theThinkingTimeCountsInsideTheWait() = runBlocking {
+        val gate = CompletableDeferred<Int>()
+        val player = object : ComputerPlayer {
+            override suspend fun choosePit(state: GameState): Int = gate.await()
+        }
+        scheduler(player).start(computersTurn)
+        clock.advanceBy(300)
+        // The player answers after 0.3 s: the computer still plays only after the full 0.8 s.
+        gate.complete(9)
+        clock.advanceBy(499)
+        assertTrue(chosen.isEmpty())
+        clock.advanceBy(1)
+        assertEquals(listOf(computersTurn to 9), chosen)
+    }
+
+    @Test
+    fun aSlowPlayerIsWaitedForAndPlaysAsSoonAsItAnswers() = runBlocking {
+        val gate = CompletableDeferred<Int>()
+        val player = object : ComputerPlayer {
+            override suspend fun choosePit(state: GameState): Int = gate.await()
+        }
+        val scheduler = scheduler(player)
+        scheduler.start(computersTurn)
+        clock.advanceBy(2_000)
+        assertTrue(chosen.isEmpty())
+        assertTrue(scheduler.isThinking)
+        gate.complete(7)
+        assertEquals(listOf(computersTurn to 7), chosen)
+        assertFalse(scheduler.isThinking)
+    }
+
+    @Test
+    fun aPlayerThatFailsIsReplacedByTheFirstLegalPitAndLogged() {
+        val broken = object : ComputerPlayer {
+            override suspend fun choosePit(state: GameState): Int = throw IllegalStateException("broken")
+        }
+        val scheduler = scheduler(broken)
+        scheduler.start(computersTurn)
+        clock.advanceBy(800)
+        assertEquals(listOf(computersTurn to 7), chosen)
+        assertEquals(1, log.messages.size)
+        assertFalse(scheduler.isThinking)
+    }
+
+    @Test
     fun theTemporaryPlayerAlwaysPicksALegalPitAndSometimesDifferentOnes() = runBlocking {
         val player = RandomLegalMovePlayer(Random(5))
         val picks = HashSet<Int>()
