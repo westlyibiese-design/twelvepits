@@ -13,7 +13,7 @@ sealed class SowEvent {
     /** The last seed landed in a pit that already had seeds. Always followed by a PickUp of that pit. */
     data class RelayPause(val pit: Int) : SowEvent()
 
-    /** The pit became exactly 4 and its 4 seeds went to the owner's store. */
+    /** The pit became exactly 4 and its 4 seeds went to the store of [owner]: the pit's owner, or the sower when it was the last seed. */
     data class Capture(val pit: Int, val owner: Player, val newStoreTotal: Int) : SowEvent()
 
     /** That player has no seeds, so their turn was skipped. */

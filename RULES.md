@@ -58,16 +58,17 @@ When the last seed of a sowing lands:
 
 Capture is the **only** way seeds go to a store.
 
-- Whenever a dropped seed makes a pit hold **exactly 4 seeds**, those 4 seeds are captured and go into the store of the **owner of that side**. The pit becomes empty.
+- Whenever a dropped seed makes a pit hold **exactly 4 seeds**, those 4 seeds are captured. The pit becomes empty. They go into the store of the **owner of that side**, except when it was your **last** seed: then they go into **your** store, even if the pit is on your opponent's side.
 - This applies to every seed you drop, on both sides, during the first sowing and during any relay.
 
 What happens next depends on whether it was your last seed:
 
 | Situation | Result |
 |---|---|
-| The pit becomes 4 in the **middle** of your sowing (not your last seed) | The pit's owner captures it and your sowing **continues** |
+| The pit becomes 4 in the **middle** of your sowing (not your last seed), on **your** side | You capture it and your sowing **continues** |
+| The pit becomes 4 in the **middle** of your sowing (not your last seed), on your **opponent's** side | Your opponent captures it and your sowing **continues** |
 | Your **last** seed makes **your own** pit 4 | You capture it and your turn **ends** |
-| Your **last** seed makes your **opponent's** pit 4 | Your opponent captures it and your turn **ends** |
+| Your **last** seed makes your **opponent's** pit 4 | **You** capture it and your turn **ends** |
 
 - A pit with 5 or more seeds cannot be captured. It can only be captured again after it has been emptied and refilled to exactly 4.
 - The starting position has all pits at 4, but nothing is captured at the start. A pit is only captured when a dropped seed makes it exactly 4.
@@ -100,7 +101,9 @@ sowTurn(startPit):                      // startPit is one of the current player
             board[current] += 1
             seeds -= 1
             if board[current] == 4:
-                store[ownerOf(current)] += 4
+                // last seed (seeds == 0): the mover takes it, even from the opponent's side
+                receiver = (seeds == 0) ? mover : ownerOf(current)
+                store[receiver] += 4
                 board[current] = 0
                 capturedTotal += 4
                 if capturedTotal == 44: return GAME_OVER
@@ -133,7 +136,7 @@ Expected: Player 1 store +4, turn ends.
 Expected: Player 1 captures 4, turn ends.
 
 **Test 4: last seed on opponent's pit.** Player 1 picks p5 with 1 seed. p6 holds 3. The seed lands on p6 and makes it 4.
-Expected: Player 2 captures 4 into their store, Player 1's turn ends.
+Expected: Player 1 captures 4 into their own store (it was the last seed), Player 1's turn ends.
 
 **Test 5: full lap.** Board: p3 holds 12 seeds and every other pit holds 1 seed (no pit holds 3). Player 1 picks p3.
 Expected end state: p3 = 1 and every other pit = 2. Every pit, including the starting pit, received exactly 1 seed. No capture, turn ends (the last seed landed in the emptied starting pit).
@@ -172,13 +175,13 @@ The game must save automatically, so a player never loses progress.
 **Stores.** Each player has one store, built into the board at one end.
 - Player 1 (bottom row) owns the **right** store.
 - Player 2 (top row) owns the **left** store.
-- Every capture is shown: the 4 captured seeds leave their pit and travel into the **owner's** store. The pile in the store grows and its number goes up. At game end each player's store holds the seeds that player won.
+- Every capture is shown: the 4 captured seeds leave their pit and travel into the store that receives them (section 5). The pile in the store grows and its number goes up. At game end each player's store holds the seeds that player won.
 
 **Seed movement (like a real game, one seed at a time).**
 1. **Pick up (0.30 s):** the seeds lift out of the chosen pit. They are shown as a small group held just above the pit with a number showing how many are still in hand.
 2. **Drop:** the seeds hop one at a time into the next pits. Each hop takes **0.40 s** at normal speed, and the pit number goes up the moment the seed lands. The sound is `sfx_seed_drop_a`, `_b` or `_c`, chosen at random.
 3. **Relay:** when the last seed lands in a pit that already had seeds, wait 0.35 s, glow that pit softly, then pick up all its seeds (step 1) and continue.
-4. **Capture:** when a pit becomes 4: emerald glow for 0.25 s, the 4 seeds fly together into the owner's store (0.60 s) with `sfx_capture`, the store number rises, and a small "+4" floats up. Sowing then continues, or the turn ends as the rules say.
+4. **Capture:** when a pit becomes 4: emerald glow for 0.25 s, the 4 seeds fly together into the receiving store (0.60 s) with `sfx_capture`, the store number rises, and a small "+4" floats up. Sowing then continues, or the turn ends as the rules say.
 5. **Skipped turn:** a banner such as "No seeds, turn skipped" for 1.5 s with `sfx_turn_skipped`.
 6. The board ignores taps while seeds are moving. Selectable pits glow softly when it is a human player's turn.
 

@@ -59,7 +59,9 @@ class SowingEngine(
                 events?.add(SowEvent.Drop(current, board[current], hand))
 
                 if (board[current] == GameState.CAPTURE_SIZE) {
-                    val owner = GameState.ownerOfPit(current)
+                    // The pit's owner takes the 4 seeds, except when this is the LAST seed of the sowing:
+                    // then the player who sowed takes them, even from the opponent's pit (RULES.md section 5).
+                    val owner = if (hand == 0) mover else GameState.ownerOfPit(current)
                     stores[owner.ordinal] += GameState.CAPTURE_SIZE
                     board[current] = 0
                     capturedTotal += GameState.CAPTURE_SIZE

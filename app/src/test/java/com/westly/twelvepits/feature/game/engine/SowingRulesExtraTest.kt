@@ -110,12 +110,14 @@ class SowingRulesExtraTest {
         assertTrue(events.contains(SowEvent.Drop(6, 1, 1)))
 
         assertEquals(listOf(0, 3, 3, 0, 3, 2, 0, 1, 0, 0, 3, 3), result.newState.pits)
-        assertEquals(0, result.newState.storeOne)
-        assertEquals(4, result.newState.storeTwo)
-        assertEquals(4, result.capturedForOpponent)
-        assertEquals(SowEvent.Capture(8, Player.TWO, 4), events.last())
+        // The last seed of the relay makes p8 (opponent's pit) 4: the sower captures it.
+        assertEquals(4, result.newState.storeOne)
+        assertEquals(0, result.newState.storeTwo)
+        assertEquals(4, result.capturedForMover)
+        assertEquals(0, result.capturedForOpponent)
+        assertEquals(SowEvent.Capture(8, Player.ONE, 4), events.last())
         assertEquals(TurnOutcome.TURN_ENDED, result.outcome)
-        assertEquals(22, result.newState.pits.sum() + result.newState.storeTwo)
+        assertEquals(22, result.newState.pits.sum() + result.newState.storeOne)
     }
 
     @Test

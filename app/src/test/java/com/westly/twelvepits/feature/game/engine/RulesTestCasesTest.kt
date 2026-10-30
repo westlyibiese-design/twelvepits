@@ -73,13 +73,14 @@ class RulesTestCasesTest {
         val result = engine.playTurn(state, 5)
 
         assertEquals(listOf(5, 5, 5, 5, 5, 0, 0, 4, 4, 4, 4, 3), result.newState.pits)
-        assertEquals(0, result.newState.storeOne)
-        assertEquals(4, result.newState.storeTwo)
-        assertEquals(0, result.capturedForMover)
-        assertEquals(4, result.capturedForOpponent)
+        // The last seed makes the opponent's pit 4: the sower captures it.
+        assertEquals(4, result.newState.storeOne)
+        assertEquals(0, result.newState.storeTwo)
+        assertEquals(4, result.capturedForMover)
+        assertEquals(0, result.capturedForOpponent)
         assertEquals(TurnOutcome.TURN_ENDED, result.outcome)
         assertEquals(Player.TWO, result.newState.currentPlayer)
-        assertEquals(SowEvent.Capture(6, Player.TWO, 4), result.events.last())
+        assertEquals(SowEvent.Capture(6, Player.ONE, 4), result.events.last())
     }
 
     @Test

@@ -61,7 +61,7 @@
     <string name="howto_page_relay_title">Relay</string>
     <string name="howto_page_relay_body">If your last seed lands in a pit that already had seeds, pick up that whole pit and keep going. If it lands in an empty pit, your turn ends.</string>
     <string name="howto_page_capture_title">Capture</string>
-    <string name="howto_page_capture_body">Whenever a pit becomes exactly 4 seeds, those 4 seeds go to the store of the player who owns that side. This works in your pit or in your opponent\'s pit. A pit with 5 or more seeds cannot be captured.</string>
+    <string name="howto_page_capture_body">Whenever a pit becomes exactly 4 seeds, those 4 seeds are captured. They go to the store of the player who owns that side. But if it was your last seed, they go to your store, even from your opponent\'s side. A pit with 5 or more seeds cannot be captured.</string>
     <string name="howto_page_win_title">Win</string>
     <string name="howto_page_win_body">The game ends when 44 seeds are captured. The player with more seeds in their store wins. The player who starts changes every game. If you have no seeds, your turn is skipped.</string>
     <string name="howto_page_indicator">Page %1$d of %2$d</string>
