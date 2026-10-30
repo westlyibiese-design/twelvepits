@@ -27,7 +27,7 @@ class ComputerStrengthTest {
             assertTrue("pit $pit is not legal in $state", pit in state.legalMoves())
             state = engine.simulate(state, pit)
             turns += 1
-            assertTrue("The game did not finish", turns < 10_000)
+            assertTrue("The game did not finish: $state", turns < 10_000)
         }
         return state.winner ?: error("A finished game always has a winner")
     }
