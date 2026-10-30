@@ -29,21 +29,29 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.westly.twelvepits.R
 import com.westly.twelvepits.core.audio.SoundManager
+import com.westly.twelvepits.core.model.Difficulty
 import com.westly.twelvepits.core.model.SeedSpeed
 import com.westly.twelvepits.core.storage.SettingsStore
+import com.westly.twelvepits.core.theme.GameDialog
 import com.westly.twelvepits.core.theme.GoldLine
 import com.westly.twelvepits.core.theme.GoldSlider
 import com.westly.twelvepits.core.theme.GoldSwitch
+import com.westly.twelvepits.core.theme.OutlinedGoldButton
 import com.westly.twelvepits.core.theme.ScreenScaffold
 import com.westly.twelvepits.core.theme.SegmentedSelector
 import com.westly.twelvepits.core.theme.TwelvePitsType
 import com.westly.twelvepits.core.theme.Cinzel
+import com.westly.twelvepits.core.theme.labelRes
+import com.westly.twelvepits.feature.game.data.SavedGameStore
+import com.westly.twelvepits.feature.game.data.Scores
+import com.westly.twelvepits.feature.game.data.Tally
 import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
     settings: SettingsStore,
     sound: SoundManager,
+    savedGames: SavedGameStore,
     onBack: () -> Unit,
 ) {
     ScreenScaffold(title = stringResource(R.string.settings_title), onBack = onBack) {
@@ -55,6 +63,7 @@ fun SettingsScreen(
                 .padding(horizontal = 24.dp),
         ) {
             SettingsControls(settings = settings, sound = sound)
+            ScoresSection(savedGames = savedGames)
         }
         Footer(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp))
     }
@@ -145,6 +154,84 @@ fun SettingsControls(
             ),
             selectedIndex = speeds.indexOf(SeedSpeed.fromHopSeconds(hopSeconds)),
             onSelected = { scope.launch { settings.setSeedSpeed(speeds[it]) } },
+        )
+    }
+}
+
+/** Games won per mode, and the "Reset scores" button. Resetting never touches the settings, names or avatars. */
+@Composable
+private fun ScoresSection(savedGames: SavedGameStore) {
+    val scores by savedGames.scores.collectAsStateWithLifecycle(initialValue = Scores())
+    var askReset by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
+        BasicText(
+            text = stringResource(R.string.settings_scores),
+            style = TwelvePitsType.sectionTitle,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        BasicText(
+            text = stringResource(R.string.mode_name_vs_computer),
+            style = TwelvePitsType.label,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        for (difficulty in Difficulty.entries) {
+            val tally: Tally = scores.computerTally(difficulty)
+            ScoreRow(
+                label = stringResource(difficulty.labelRes),
+                value = stringResource(R.string.scores_computer_row, tally.playerOne, tally.playerTwo),
+            )
+            Divider()
+        }
+        BasicText(
+            text = stringResource(R.string.mode_name_two_players),
+            style = TwelvePitsType.label,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+        ScoreRow(
+            label = stringResource(R.string.scores_wins),
+            value = stringResource(
+                R.string.scores_two_players_row,
+                scores.twoPlayers.playerOne,
+                scores.twoPlayers.playerTwo,
+            ),
+        )
+        Divider()
+        OutlinedGoldButton(
+            text = stringResource(R.string.scores_reset),
+            onClick = { askReset = true },
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        )
+    }
+
+    if (askReset) {
+        GameDialog(
+            title = stringResource(R.string.scores_reset),
+            message = stringResource(R.string.scores_reset_message),
+            confirmText = stringResource(R.string.scores_reset_confirm),
+            dismissText = stringResource(R.string.dialog_cancel),
+            onConfirm = {
+                askReset = false
+                scope.launch { savedGames.resetScores() }
+            },
+            onDismiss = { askReset = false },
+        )
+    }
+}
+
+@Composable
+private fun ScoreRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        BasicText(text = label, style = TwelvePitsType.body, modifier = Modifier.weight(0.4f))
+        BasicText(
+            text = value,
+            style = TwelvePitsType.body.copy(textAlign = TextAlign.End),
+            modifier = Modifier.weight(0.6f),
         )
     }
 }

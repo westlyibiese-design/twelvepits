@@ -36,11 +36,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.westly.twelvepits.R
+import com.westly.twelvepits.core.model.GameMode
 import com.westly.twelvepits.core.theme.GoldButton
 import com.westly.twelvepits.core.theme.Ink
 import com.westly.twelvepits.core.theme.MaxContentWidth
 import com.westly.twelvepits.core.theme.OutlinedGoldButton
 import com.westly.twelvepits.core.theme.TwelvePitsType
+import com.westly.twelvepits.core.theme.labelRes
+import com.westly.twelvepits.feature.game.data.SavedGame
 import com.westly.twelvepits.feature.game.data.SavedGameStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -57,8 +60,9 @@ fun MainMenuScreen(
     onHowToPlay: () -> Unit,
     onSettings: () -> Unit,
 ) {
-    val hasSavedGame by remember(savedGames) { savedGames.hasSavedGame() }
-        .collectAsStateWithLifecycle(initialValue = false)
+    // Continue is shown only while a valid saved game exists.
+    val savedGame by remember(savedGames) { savedGames.savedGame }
+        .collectAsStateWithLifecycle(initialValue = null)
 
     // Controls fade in one after another once the cross-fade from the launch screen is under way.
     val reveal = remember { List(4) { Animatable(0f) } }
@@ -112,12 +116,19 @@ fun MainMenuScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (hasSavedGame) {
-                GoldButton(
-                    text = stringResource(R.string.menu_continue),
-                    onClick = onContinue,
+            val saved = savedGame
+            if (saved != null) {
+                Column(
                     modifier = Modifier.alpha(reveal[0].value),
-                )
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    GoldButton(text = stringResource(R.string.menu_continue), onClick = onContinue)
+                    BasicText(
+                        text = continueSummary(saved),
+                        style = TwelvePitsType.label.copy(textAlign = TextAlign.Center),
+                    )
+                }
             }
             GoldButton(
                 text = stringResource(R.string.menu_play),
@@ -145,5 +156,22 @@ fun MainMenuScreen(
                 modifier = Modifier.alpha(reveal[3].value).padding(top = 4.dp),
             )
         }
+    }
+}
+
+/** The small line under Continue, for example "Against the computer · Normal · Move 14". */
+@Composable
+private fun continueSummary(saved: SavedGame): String {
+    val mode = stringResource(saved.config.mode.labelRes)
+    val move = saved.state.moveNumber
+    return if (saved.config.mode == GameMode.VS_COMPUTER) {
+        stringResource(
+            R.string.continue_summary_computer,
+            mode,
+            stringResource(saved.config.difficulty.labelRes),
+            move,
+        )
+    } else {
+        stringResource(R.string.continue_summary_other, mode, move)
     }
 }

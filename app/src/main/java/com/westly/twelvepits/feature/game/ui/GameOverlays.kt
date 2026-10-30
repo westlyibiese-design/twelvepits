@@ -80,6 +80,7 @@ private fun OverlayPanel(
 @Composable
 internal fun PauseOverlay(
     moveNumber: Int,
+    difficulty: String?,
     onResume: () -> Unit,
     onRestart: () -> Unit,
     onSettings: () -> Unit,
@@ -104,6 +105,12 @@ internal fun PauseOverlay(
                     text = stringResource(R.string.pause_move, moveNumber),
                     style = TwelvePitsType.bodyMuted.copy(textAlign = TextAlign.Center),
                 )
+                if (difficulty != null) {
+                    BasicText(
+                        text = difficulty,
+                        style = TwelvePitsType.bodyMuted.copy(textAlign = TextAlign.Center),
+                    )
+                }
             }
             Column(
                 modifier = Modifier.weight(1.2f),
@@ -182,22 +189,6 @@ internal fun ConfirmOverlay(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
             }
-        }
-    }
-}
-
-// Replaced in Phase 5: the result screen replaces this small dialog.
-/** "<name> wins: a to b" with one OK button that returns to the main menu. */
-@Composable
-internal fun GameOverOverlay(
-    message: String,
-    onOk: () -> Unit,
-) {
-    OverlayPanel {
-        Column(verticalArrangement = Arrangement.spacedBy(GameDimens.PanelGap)) {
-            BasicText(text = stringResource(R.string.game_over_title), style = TwelvePitsType.sectionTitle)
-            BasicText(text = message, style = TwelvePitsType.body)
-            GoldButton(text = stringResource(R.string.game_over_ok), onClick = onOk)
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.westly.twelvepits.feature.game.ui
 
+import android.os.SystemClock
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -10,12 +11,25 @@ import androidx.lifecycle.ViewModelProvider
 import com.westly.twelvepits.core.audio.Sfx
 import com.westly.twelvepits.core.audio.SoundManager
 import com.westly.twelvepits.core.model.GameConfig
+import com.westly.twelvepits.core.model.GameMode
 import com.westly.twelvepits.core.model.Player
 import com.westly.twelvepits.core.storage.SettingsStore
+import com.westly.twelvepits.feature.game.ai.ComputerPlayer
+import com.westly.twelvepits.feature.game.ai.ComputerTurnScheduler
+import com.westly.twelvepits.feature.game.ai.RandomLegalMovePlayer
+import com.westly.twelvepits.feature.game.data.GameStart
+import com.westly.twelvepits.feature.game.data.PlayClock
+import com.westly.twelvepits.feature.game.data.SavedGame
+import com.westly.twelvepits.feature.game.data.SavedGameStore
+import com.westly.twelvepits.feature.game.data.StartMode
+import com.westly.twelvepits.feature.game.data.TurnStats
+import com.westly.twelvepits.feature.game.engine.EngineLogger
 import com.westly.twelvepits.feature.game.engine.GameState
 import com.westly.twelvepits.feature.game.engine.GameStatus
 import com.westly.twelvepits.feature.game.engine.IllegalMoveException
 import com.westly.twelvepits.feature.game.engine.SowingEngine
+import com.westly.twelvepits.feature.result.GameResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -36,17 +50,10 @@ enum class GameOverlay {
     SETTINGS,
     RESTART_CONFIRM,
     QUIT_CONFIRM,
+
+    /** The game is over. The screen is about to show the result screen; nothing can be tapped. */
     GAME_OVER,
 }
-
-/** The result of a finished game. A draw is impossible (RULES.md section 7). */
-data class GameResult(
-    val winner: Player,
-    val winnerScore: Int,
-    val loserScore: Int,
-    val scoreOne: Int,
-    val scoreTwo: Int,
-)
 
 /** Everything the screen needs to show that is not the board itself. */
 data class GameUiState(
@@ -55,25 +62,49 @@ data class GameUiState(
     val moveNumber: Int = 0,
     val bannerPlayer: Player? = null,
     val soundMuted: Boolean = false,
+    /** False until the starting position (new or saved) has been read. */
+    val ready: Boolean = false,
+    /** Continue was asked for but the saved game could not be loaded. The screen goes back to the menu. */
+    val loadFailed: Boolean = false,
+    /** Set once, when the game is over and its last animation has finished. */
     val result: GameResult? = null,
 )
 
 /**
  * Holds the game: the engine state, the running animation and the open panels. It lives as long as
  * the game screen's navigation entry, so turning the phone never restarts the game or its animation.
- * Main thread only.
+ * It also saves the game after every finished turn and plays the computer's turns. Main thread only.
  */
 class GameViewModel(
     val config: GameConfig,
+    private val startMode: StartMode,
     internal val settings: SettingsStore,
     internal val sound: SoundManager,
+    private val savedGames: SavedGameStore,
+    computer: ComputerPlayer?,
 ) : ViewModel() {
     private val engine = SowingEngine()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    // Replaced in Phase 5: the starter alternates between games and is saved.
-    private val startingPlayer: Player = Player.ONE
-    private var engineState: GameState = GameState.initial(startingPlayer)
+    // The real position is read from the saved data right after creation (see loadStart).
+    private var engineState: GameState = GameState.initial(Player.ONE)
+    private var stats = TurnStats()
+    private val clock = PlayClock(now = { SystemClock.elapsedRealtime() })
+    private var inForeground = true
+    private var finishRecorded = false
+
+    private val scheduler: ComputerTurnScheduler? = computer?.let {
+        ComputerTurnScheduler(
+            player = it,
+            scope = scope,
+            onPitChosen = { state, pit -> onComputerChose(state, pit) },
+            logger = object : EngineLogger {
+                override fun error(message: String) {
+                    Log.e(TAG, message)
+                }
+            },
+        )
+    }
 
     /** What the board shows. The draw code reads it every frame. */
     val display = BoardDisplayState()
@@ -107,7 +138,6 @@ class GameViewModel(
 
     init {
         display.reset(engineState)
-        showTurnGlow(engineState.currentPlayer)
         scope.launch {
             settings.seedHopSeconds.collect { currentTiming = AnimationTiming(it) }
         }
@@ -123,6 +153,38 @@ class GameViewModel(
                 publishSoundState()
             }
         }
+        loadStart()
+    }
+
+    /** Reads the starting position: a new game, or the saved game. */
+    private fun loadStart() {
+        scope.launch {
+            val start = try {
+                savedGames.prepareStart(config, startMode)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "The starting position could not be read.", e)
+                null
+            }
+            if (start == null) {
+                _uiState.update { it.copy(loadFailed = true) }
+            } else {
+                applyStart(start)
+            }
+        }
+    }
+
+    private fun applyStart(start: GameStart) {
+        engineState = start.state
+        stats = start.stats
+        clock.reset(start.elapsedMs)
+        display.reset(engineState)
+        updateTurnGlow()
+        _uiState.update { it.copy(ready = true, moveNumber = engineState.moveNumber) }
+        frameTick.longValue += 1
+        syncClock()
+        syncComputerTurn()
     }
 
     // ---- Screen life ----
@@ -132,18 +194,37 @@ class GameViewModel(
         sound.startGameMusic()
     }
 
-    /** The game screen was left for good (not a rotation): the menu music comes back. */
+    /**
+     * The game screen was left for good (not a rotation). The menu music comes back, except after a
+     * finished game: the result screen starts it again once its sound has played.
+     */
     fun onScreenClosed() {
-        sound.startMenuMusic()
+        if (_uiState.value.result == null) sound.startMenuMusic()
     }
 
-    /** The app went to the background: finish the turn's movement at once, with no sound. */
+    /** The screen is visible again: the clock and the computer's thinking continue. */
+    fun onAppForeground() {
+        inForeground = true
+        syncClock()
+        syncComputerTurn()
+    }
+
+    /**
+     * The app went to the background or the screen is being left: finish the turn's movement at once
+     * with no sound, stop the clock and the computer's thinking, and save the position.
+     */
     fun onAppBackground() {
-        val running = animator ?: return
-        running.finishInstantly()
-        display.clearEffects()
-        finishTurnAnimation()
-        frameTick.longValue += 1
+        inForeground = false
+        val running = animator
+        if (running != null) {
+            running.finishInstantly()
+            display.clearEffects()
+            finishTurnAnimation()
+            frameTick.longValue += 1
+        }
+        syncClock()
+        syncComputerTurn()
+        saveProgress()
     }
 
     /** The frame loop (re)started, so the time before it must not count. */
@@ -179,9 +260,12 @@ class GameViewModel(
     /** The player tapped the pit with this engine number. */
     fun onPitTapped(pit: Int) {
         val state = engineState
+        if (!_uiState.value.ready) return
         if (animator != null) return
         if (state.status != GameStatus.IN_PROGRESS) return
         if (_uiState.value.overlay != GameOverlay.NONE) return
+        // Against the computer the human is Player ONE and cannot play during the computer's turn.
+        if (isComputerTurn(state)) return
         if (pit !in 0 until GameState.PIT_COUNT) return
         if (GameState.ownerOfPit(pit) != state.currentPlayer || state.pits[pit] == 0) {
             invalidTap(pit)
@@ -189,6 +273,18 @@ class GameViewModel(
         }
         startTurn(state, pit)
     }
+
+    /** The computer's thinking time is over and it chose [pit] for [state]. */
+    private fun onComputerChose(state: GameState, pit: Int) {
+        if (engineState != state) return
+        if (animator != null) return
+        if (_uiState.value.overlay != GameOverlay.NONE) return
+        if (!isComputerTurn(state)) return
+        startTurn(state, pit)
+    }
+
+    private fun isComputerTurn(state: GameState): Boolean =
+        scheduler != null && config.mode == GameMode.VS_COMPUTER && state.currentPlayer == Player.TWO
 
     private fun startTurn(state: GameState, pit: Int) {
         val result = try {
@@ -198,10 +294,15 @@ class GameViewModel(
             return
         }
         engineState = result.newState
+        stats = stats.afterTurn(state.currentPlayer, result.capturedForMover)
         display.pitGlowPlayer = null
         display.storeGlowPlayer = state.currentPlayer
         animator = SowAnimator(display, result.events, { currentTiming }, sounds)
         _uiState.update { it.copy(moveNumber = result.newState.moveNumber) }
+        // The turn is computed: save its final result now, before the animation starts, so closing the
+        // app during the animation leaves the finished turn saved. A finished game is recorded after its animation.
+        saveProgress()
+        syncComputerTurn()
         refreshNeedsFrames()
     }
 
@@ -224,21 +325,37 @@ class GameViewModel(
         if (state.status == GameStatus.FINISHED) {
             display.pitGlowPlayer = null
             display.storeGlowPlayer = null
-            val winner = state.winner ?: if (state.storeOne >= state.storeTwo) Player.ONE else Player.TWO
-            val result = GameResult(
-                winner = winner,
-                winnerScore = state.storeOf(winner),
-                loserScore = state.storeOf(winner.opponent),
-                scoreOne = state.storeOne,
-                scoreTwo = state.storeTwo,
-            )
-            _uiState.update { it.copy(result = result, moveNumber = state.moveNumber) }
-            setOverlay(GameOverlay.GAME_OVER)
+            completeGame(state)
         } else {
-            showTurnGlow(state.currentPlayer)
+            updateTurnGlow()
             _uiState.update { it.copy(moveNumber = state.moveNumber) }
+            syncComputerTurn()
         }
         refreshNeedsFrames()
+    }
+
+    /**
+     * The game is over and its animation has finished. In ONE saved edit the win is counted, the
+     * starter record moves on and the saved game is deleted. Then the result screen can be shown.
+     */
+    private fun completeGame(state: GameState) {
+        clock.stop()
+        if (!finishRecorded) {
+            finishRecorded = true
+            savedGames.recordFinishedGame(config, state)
+            sound.stopMusic()
+        }
+        val result = GameResult.from(config, state, stats, clock.elapsedMs())
+        _uiState.update { it.copy(result = result, moveNumber = state.moveNumber) }
+        setOverlay(GameOverlay.GAME_OVER)
+    }
+
+    /** Saves the position of a game in progress with at least one turn played. */
+    private fun saveProgress() {
+        val state = engineState
+        if (!_uiState.value.ready) return
+        if (state.status != GameStatus.IN_PROGRESS || state.moveNumber <= 0) return
+        savedGames.saveGame(SavedGame(config, state, clock.elapsedMs(), stats))
     }
 
     private fun syncCountsToEngine() {
@@ -250,9 +367,16 @@ class GameViewModel(
         display.stores[Player.TWO.ordinal] = state.storeTwo
     }
 
-    private fun showTurnGlow(player: Player) {
-        display.pitGlowPlayer = player
-        display.storeGlowPlayer = player
+    /** The green ring is on the store of whoever plays; the pits glow only when a human can tap them. */
+    private fun updateTurnGlow() {
+        val state = engineState
+        if (state.status != GameStatus.IN_PROGRESS) {
+            display.pitGlowPlayer = null
+            display.storeGlowPlayer = null
+            return
+        }
+        display.pitGlowPlayer = if (isComputerTurn(state)) null else state.currentPlayer
+        display.storeGlowPlayer = state.currentPlayer
     }
 
     private fun mirrorBanner() {
@@ -265,6 +389,24 @@ class GameViewModel(
     private fun refreshNeedsFrames() {
         val blocked = _uiState.value.overlay != GameOverlay.NONE
         needsFrames = (animator != null || display.hasEffects) && !blocked
+    }
+
+    /** The play-time clock runs only while the board can be played: visible, no panel open, game in progress. */
+    private fun syncClock() {
+        val ui = _uiState.value
+        val shouldRun = ui.ready && inForeground && ui.overlay == GameOverlay.NONE &&
+            engineState.status == GameStatus.IN_PROGRESS
+        if (shouldRun) clock.start() else clock.stop()
+    }
+
+    /** The computer thinks only on its own turn, while the board is visible, nothing moves and no panel is open. */
+    private fun syncComputerTurn() {
+        val computer = scheduler ?: return
+        val state = engineState
+        val ui = _uiState.value
+        val wanted = ui.ready && inForeground && ui.overlay == GameOverlay.NONE && animator == null &&
+            state.status == GameStatus.IN_PROGRESS && isComputerTurn(state)
+        if (wanted) computer.start(state) else computer.cancel()
     }
 
     // ---- Controls ----
@@ -331,12 +473,20 @@ class GameViewModel(
         }
     }
 
-    /** Starts the game again with the same starting player and the same names. */
+    /**
+     * Starts the game again with the SAME starting player and the same players. The saved game is
+     * deleted and the statistics and the time start again. A restart is not a finished game, so it is
+     * not counted and does not change the starter record.
+     */
     fun confirmRestart() {
         animator = null
-        engineState = GameState.initial(startingPlayer)
+        scheduler?.cancel()
+        engineState = GameState.initial(engineState.startingPlayer)
+        stats = TurnStats()
+        clock.reset()
+        scope.launch { savedGames.deleteSavedGame() }
         display.reset(engineState)
-        showTurnGlow(engineState.currentPlayer)
+        updateTurnGlow()
         _uiState.update { it.copy(bannerPlayer = null, moveNumber = 0, result = null) }
         frameTick.longValue += 1
         setOverlay(GameOverlay.NONE)
@@ -345,10 +495,13 @@ class GameViewModel(
     private fun setOverlay(overlay: GameOverlay) {
         _uiState.update { it.copy(overlay = overlay) }
         if (overlay != GameOverlay.NONE) hideControls()
+        syncClock()
+        syncComputerTurn()
         refreshNeedsFrames()
     }
 
     override fun onCleared() {
+        scheduler?.cancel()
         scope.cancel()
         super.onCleared()
     }
@@ -361,15 +514,20 @@ class GameViewModel(
     }
 }
 
-/** Builds the [GameViewModel] for one game. */
+/** Builds the [GameViewModel] for one game. Against the computer it gets the computer player. */
 class GameViewModelFactory(
     private val config: GameConfig,
+    private val startMode: StartMode,
     private val settings: SettingsStore,
     private val sound: SoundManager,
+    private val savedGames: SavedGameStore,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         require(modelClass.isAssignableFrom(GameViewModel::class.java)) { "Unknown ViewModel class" }
-        return GameViewModel(config, settings, sound) as T
+        // Replaced in Phase 6: the smart computer players (Easy, Normal, Hard).
+        val computer: ComputerPlayer? =
+            if (config.mode == GameMode.VS_COMPUTER) RandomLegalMovePlayer() else null
+        return GameViewModel(config, startMode, settings, sound, savedGames, computer) as T
     }
 }

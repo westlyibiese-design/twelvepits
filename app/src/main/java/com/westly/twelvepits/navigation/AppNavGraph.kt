@@ -8,7 +8,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -29,11 +32,14 @@ import com.westly.twelvepits.feature.game.ui.GameViewModelFactory
 import com.westly.twelvepits.feature.game.ui.OrientationGuard
 import com.westly.twelvepits.feature.howtoplay.HowToPlayScreen
 import com.westly.twelvepits.feature.launch.LaunchScreen
-import com.westly.twelvepits.feature.menu.GameSetupScreen
+import com.westly.twelvepits.feature.game.data.StartMode
+import com.westly.twelvepits.feature.menu.GameSetupHost
 import com.westly.twelvepits.feature.menu.MainMenuScreen
 import com.westly.twelvepits.feature.menu.ModeSelectScreen
 import com.westly.twelvepits.feature.menu.SetupKind
+import com.westly.twelvepits.feature.result.ResultScreen
 import com.westly.twelvepits.feature.settings.SettingsScreen
+import kotlinx.coroutines.launch
 
 private const val FADE_MS = 400
 
@@ -73,14 +79,38 @@ fun AppNavGraph(
             }
             composable(Routes.MENU) {
                 LaunchedEffect(Unit) { container.sound.startMenuMusic() }
+                val scope = rememberCoroutineScope()
+                var opening by remember { mutableStateOf(false) }
+                var loadFailed by remember { mutableStateOf(false) }
                 MainMenuScreen(
                     savedGames = container.savedGames,
-                    // Replaced in Phase 5
-                    onContinue = {},
+                    onContinue = {
+                        if (!opening) {
+                            opening = true
+                            scope.launch {
+                                val saved = container.savedGames.loadSavedGame()
+                                if (saved == null) {
+                                    loadFailed = true
+                                } else {
+                                    navController.navigate(Routes.game(saved.config, StartMode.CONTINUE))
+                                }
+                                opening = false
+                            }
+                        }
+                    },
                     onPlay = { navController.navigate(Routes.MODE_SELECT) },
                     onHowToPlay = { navController.navigate(Routes.HOW_TO_PLAY) },
                     onSettings = { navController.navigate(Routes.SETTINGS) },
                 )
+                if (loadFailed) {
+                    GameDialog(
+                        title = stringResource(R.string.continue_failed_title),
+                        message = stringResource(R.string.continue_failed_message),
+                        confirmText = stringResource(R.string.dialog_ok),
+                        onConfirm = { loadFailed = false },
+                        onDismiss = { loadFailed = false },
+                    )
+                }
             }
             composable(Routes.MODE_SELECT) {
                 ModeSelectScreen(
@@ -90,30 +120,21 @@ fun AppNavGraph(
                 )
             }
             composable(Routes.SETUP_COMPUTER) {
-                // Replaced in Phase 5: the computer opponent arrives with its own phase.
-                var comingSoon by remember { mutableStateOf(false) }
-                GameSetupScreen(
+                GameSetupHost(
                     kind = SetupKind.COMPUTER,
                     settings = container.settings,
+                    savedGames = container.savedGames,
                     onBack = { navController.popBackStack() },
-                    onStart = { comingSoon = true },
+                    onStartGame = { config -> navController.navigate(Routes.game(config)) },
                 )
-                if (comingSoon) {
-                    GameDialog(
-                        title = stringResource(R.string.mode_computer_title),
-                        message = stringResource(R.string.coming_next_phase),
-                        confirmText = stringResource(R.string.game_over_ok),
-                        onConfirm = { comingSoon = false },
-                        onDismiss = { comingSoon = false },
-                    )
-                }
             }
             composable(Routes.SETUP_TWO_PLAYERS) {
-                GameSetupScreen(
+                GameSetupHost(
                     kind = SetupKind.TWO_PLAYERS,
                     settings = container.settings,
+                    savedGames = container.savedGames,
                     onBack = { navController.popBackStack() },
-                    onStart = { config -> navController.navigate(Routes.game(config)) },
+                    onStartGame = { config -> navController.navigate(Routes.game(config)) },
                 )
             }
             composable(Routes.HOW_TO_PLAY) {
@@ -123,8 +144,40 @@ fun AppNavGraph(
                 SettingsScreen(
                     settings = container.settings,
                     sound = container.sound,
+                    savedGames = container.savedGames,
                     onBack = { navController.popBackStack() },
                 )
+            }
+            composable(Routes.RESULT) {
+                // The result is kept in memory only. After the app was closed there is none: back to the menu.
+                val result = remember { container.pendingResult }
+                if (result == null) {
+                    LaunchedEffect(Unit) {
+                        if (!navController.popBackStack(Routes.MENU, inclusive = false)) {
+                            navController.navigate(Routes.MENU) {
+                                popUpTo(Routes.RESULT) { inclusive = true }
+                            }
+                        }
+                    }
+                } else {
+                    val toMenu: () -> Unit = {
+                        container.pendingResult = null
+                        returnToMenu()
+                    }
+                    BackHandler(onBack = toMenu)
+                    ResultScreen(
+                        result = result,
+                        sound = container.sound,
+                        onPlayAgain = {
+                            container.pendingResult = null
+                            // The starter was already moved on when the game finished.
+                            navController.navigate(Routes.game(result.config)) {
+                                popUpTo(Routes.RESULT) { inclusive = true }
+                            }
+                        },
+                        onMainMenu = toMenu,
+                    )
+                }
             }
             composable(
                 route = Routes.GAME_PATTERN,
@@ -135,23 +188,47 @@ fun AppNavGraph(
                     navArgument(Routes.ARG_A1) { type = NavType.StringType; defaultValue = "" },
                     navArgument(Routes.ARG_P2) { type = NavType.StringType; defaultValue = "" },
                     navArgument(Routes.ARG_A2) { type = NavType.StringType; defaultValue = "" },
+                    navArgument(Routes.ARG_START) { type = NavType.StringType; defaultValue = "" },
                 ),
             ) { entry ->
                 val config = Routes.configFrom(entry.arguments)
                 if (config == null) {
                     LaunchedEffect(Unit) { navController.popBackStack() }
                 } else {
+                    // Saved with the screen's state: if the system closed the app and this screen is rebuilt,
+                    // it must continue the saved game and never start a new one.
+                    var started by rememberSaveable { mutableStateOf(false) }
+                    val startMode = if (started) {
+                        StartMode.RESTORE
+                    } else {
+                        StartMode.fromArgument(entry.arguments?.getString(Routes.ARG_START))
+                    }
+                    LaunchedEffect(Unit) { started = true }
                     // The game and its running animation live in this ViewModel, which belongs to
                     // this navigation entry: turning the phone does not restart anything.
                     val viewModel = remember(entry) {
                         ViewModelProvider(
                             entry,
-                            GameViewModelFactory(config, container.settings, container.sound),
+                            GameViewModelFactory(
+                                config,
+                                startMode,
+                                container.settings,
+                                container.sound,
+                                container.savedGames,
+                            ),
                         )[GameViewModel::class.java]
                     }
                     GameScreen(
                         viewModel = viewModel,
-                        onGameFinished = { returnToMenu() },
+                        onGameFinished = { result ->
+                            // Only once: the result is shown and the game screen is removed.
+                            if (Routes.isGame(navController.currentDestination?.route)) {
+                                container.pendingResult = result
+                                navController.navigate(Routes.RESULT) {
+                                    popUpTo(Routes.GAME_PATTERN) { inclusive = true }
+                                }
+                            }
+                        },
                         onExit = returnToMenu,
                     )
                 }

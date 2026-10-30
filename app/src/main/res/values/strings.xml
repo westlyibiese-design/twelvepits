@@ -14,6 +14,15 @@
     <string name="menu_play">PLAY</string>
     <string name="menu_how_to_play">How to play</string>
     <string name="menu_settings">Settings</string>
+    <string name="continue_summary_computer">%1$s · %2$s · Move %3$d</string>
+    <string name="continue_summary_other">%1$s · Move %2$d</string>
+    <string name="continue_failed_title">Continue</string>
+    <string name="continue_failed_message">Saved game could not be loaded</string>
+
+    <!-- New game while a game is saved -->
+    <string name="replace_title">Start a new game?</string>
+    <string name="replace_message">Your saved game will be replaced.</string>
+    <string name="replace_confirm">Replace</string>
 
     <!-- Mode select -->
     <string name="mode_title">Play</string>
@@ -67,6 +76,13 @@
     <string name="seed_speed_slow">Slow</string>
     <string name="seed_speed_normal">Normal</string>
     <string name="seed_speed_fast">Fast</string>
+    <string name="settings_scores">Scores</string>
+    <string name="scores_wins">Games won</string>
+    <string name="scores_computer_row">You %1$d · Computer %2$d</string>
+    <string name="scores_two_players_row">Player 1 %1$d · Player 2 %2$d</string>
+    <string name="scores_reset">Reset scores</string>
+    <string name="scores_reset_message">Reset all scores? This also restarts who plays first.</string>
+    <string name="scores_reset_confirm">Reset</string>
     <string name="settings_footer_title">Twelve Pits (Ayo)</string>
     <string name="settings_footer_version">Version %1$s · © Neribo Group</string>
 
@@ -89,6 +105,7 @@
     <string name="game_turn_skipped">%1$s has no seeds. Turn skipped.</string>
     <string name="game_settings_done">DONE</string>
     <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_ok">OK</string>
 
     <!-- Pause menu -->
     <string name="pause_title">Paused</string>
@@ -98,21 +115,30 @@
     <string name="pause_settings">Settings</string>
     <string name="pause_quit">Quit to menu</string>
 
-    <!-- Questions in the game (Replaced in Phase 5: the game is saved then) -->
+    <!-- Questions in the game. The game is saved after every turn. -->
     <string name="leave_title">Leave the game?</string>
-    <string name="leave_message">Your progress will be lost.</string>
+    <string name="leave_message">It is saved and you can continue later.</string>
+    <string name="leave_message_unsaved">No moves have been played yet, so nothing is saved.</string>
     <string name="leave_stay">Stay</string>
     <string name="leave_leave">Leave</string>
     <string name="restart_title">Restart the game?</string>
-    <string name="restart_message">The game starts again from the beginning with the same players.</string>
+    <string name="restart_message">The game starts again from the beginning with the same players and the same player first. It is not counted as a game.</string>
     <string name="quit_title">Quit to menu?</string>
-    <string name="quit_message">Your progress will be lost.</string>
     <string name="quit_confirm">Quit</string>
 
-    <!-- Game over (Replaced in Phase 5: the result screen) -->
-    <string name="game_over_title">Game over</string>
-    <string name="game_over_message">%1$s wins: %2$d to %3$d</string>
-    <string name="game_over_ok">OK</string>
+    <!-- Result screen -->
+    <string name="result_victory">Victory</string>
+    <string name="result_defeat">Defeat</string>
+    <string name="result_wins">%1$s wins</string>
+    <string name="result_captured">%1$s captured %2$d seeds</string>
+    <string name="result_seeds_captured">%1$d seeds captured</string>
+    <string name="result_to">to</string>
+    <string name="result_moves">Moves</string>
+    <string name="result_best_capture">Best capture</string>
+    <string name="result_time">Time</string>
+    <string name="result_play_again">PLAY AGAIN</string>
+    <string name="result_main_menu">Main menu</string>
+    <string name="result_trophy_description">Trophy</string>
 
     <!-- The board could not be loaded -->
     <string name="game_error_title">The board could not be loaded</string>
@@ -120,7 +146,4 @@
     <string name="game_error_geometry_invalid">The board data file is not valid. Please reinstall the game.</string>
     <string name="game_error_image_missing">A board picture could not be read. Please reinstall the game.</string>
     <string name="game_error_detail">Details: %1$s</string>
-
-    <!-- Play the computer (Replaced in Phase 5) -->
-    <string name="coming_next_phase">Coming in the next phase</string>
 </resources>

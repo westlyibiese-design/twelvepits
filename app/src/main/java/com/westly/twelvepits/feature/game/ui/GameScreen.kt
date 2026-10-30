@@ -49,11 +49,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.westly.twelvepits.R
+import com.westly.twelvepits.core.model.GameMode
 import com.westly.twelvepits.core.model.Player
 import com.westly.twelvepits.core.theme.GameDimens
 import com.westly.twelvepits.core.theme.Ink
 import com.westly.twelvepits.core.theme.OutlinedGoldButton
 import com.westly.twelvepits.core.theme.TwelvePitsType
+import com.westly.twelvepits.core.theme.labelRes
+import com.westly.twelvepits.feature.result.GameResult
 import kotlinx.coroutines.flow.collectLatest
 import kotlin.math.roundToInt
 
@@ -64,7 +67,7 @@ private const val PULSE_LOW = 0.7f
  * The game screen. Landscape, full screen, nothing on it except the table and the board: the
  * controls appear after a tap on the table. The game itself lives in [viewModel].
  *
- * [onGameFinished] is called when the player confirms the small game-over dialog.
+ * [onGameFinished] is called once, when the game is over and its last animation has finished.
  * [onExit] is called when the player leaves or quits to the menu.
  */
 @Composable
@@ -81,6 +84,7 @@ fun GameScreen(
 
     GameWindowEffect(activity, viewModel)
     GameFrameLoop(viewModel)
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.onAppForeground() }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.onAppBackground() }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         if (activity != null) hideSystemBars(activity, view)
@@ -92,6 +96,16 @@ fun GameScreen(
         value = loadGameAssets(context)
     }
     val mapper = remember(perspective) { BoardMapper(perspective) }
+
+    // The game is over: go to the result screen. (Back does the same while the screen is still closing.)
+    LaunchedEffect(ui.result) {
+        val finished = ui.result
+        if (finished != null) onGameFinished(finished)
+    }
+    // Continue was asked for but the saved game could not be read.
+    LaunchedEffect(ui.loadFailed) {
+        if (ui.loadFailed) onExit()
+    }
 
     BackHandler {
         val result = ui.result
@@ -106,14 +120,15 @@ fun GameScreen(
         when (val state = assetsState) {
             AssetsState.Loading -> Unit
             is AssetsState.Failed -> LoadErrorPanel(state, onExit)
-            is AssetsState.Ready -> GameBoardLayer(
-                viewModel = viewModel,
-                assets = state.assets,
-                mapper = mapper,
-                ui = ui,
-                onGameFinished = onGameFinished,
-                onExit = onExit,
-            )
+            is AssetsState.Ready -> if (ui.ready) {
+                GameBoardLayer(
+                    viewModel = viewModel,
+                    assets = state.assets,
+                    mapper = mapper,
+                    ui = ui,
+                    onExit = onExit,
+                )
+            }
         }
     }
 }
@@ -124,7 +139,6 @@ private fun GameBoardLayer(
     assets: GameAssets,
     mapper: BoardMapper,
     ui: GameUiState,
-    onGameFinished: (GameResult) -> Unit,
     onExit: () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -207,23 +221,26 @@ private fun GameBoardLayer(
             onPause = viewModel::openPause,
             onSound = viewModel::toggleSound,
         )
-        GameOverlayHost(viewModel = viewModel, ui = ui, onGameFinished = onGameFinished, onExit = onExit)
+        GameOverlayHost(viewModel = viewModel, ui = ui, onExit = onExit)
     }
 }
 
-/** Shows whichever panel is open: the pause menu, a question, the settings or the game-over dialog. */
+/** Shows whichever panel is open: the pause menu, a question or the settings. */
 @Composable
 private fun GameOverlayHost(
     viewModel: GameViewModel,
     ui: GameUiState,
-    onGameFinished: (GameResult) -> Unit,
     onExit: () -> Unit,
 ) {
+    // Nothing is saved before the first turn is played.
+    val savedMessage = stringResource(
+        if (ui.moveNumber >= 1) R.string.leave_message else R.string.leave_message_unsaved,
+    )
     when (ui.overlay) {
         GameOverlay.NONE -> Unit
         GameOverlay.LEAVE -> ConfirmOverlay(
             title = stringResource(R.string.leave_title),
-            message = stringResource(R.string.leave_message),
+            message = savedMessage,
             dismissText = stringResource(R.string.leave_stay),
             confirmText = stringResource(R.string.leave_leave),
             onDismiss = viewModel::stay,
@@ -231,10 +248,16 @@ private fun GameOverlayHost(
         )
         GameOverlay.PAUSE -> PauseOverlay(
             moveNumber = ui.moveNumber,
+            difficulty = if (viewModel.config.mode == GameMode.VS_COMPUTER) {
+                stringResource(viewModel.config.difficulty.labelRes)
+            } else {
+                null
+            },
             onResume = viewModel::resume,
             onRestart = viewModel::askRestart,
             onSettings = viewModel::openSettings,
-            onQuit = viewModel::askQuit,
+            // The game is already saved after every turn, so quitting needs no question once a turn was played.
+            onQuit = { if (ui.moveNumber >= 1) onExit() else viewModel.askQuit() },
         )
         GameOverlay.SETTINGS -> SettingsOverlay(
             settings = viewModel.settings,
@@ -249,29 +272,16 @@ private fun GameOverlayHost(
             onDismiss = viewModel::backToPause,
             onConfirm = viewModel::confirmRestart,
         )
-        // Replaced in Phase 5: saving the game comes with the Continue button.
         GameOverlay.QUIT_CONFIRM -> ConfirmOverlay(
             title = stringResource(R.string.quit_title),
-            message = stringResource(R.string.quit_message),
+            message = savedMessage,
             dismissText = stringResource(R.string.dialog_cancel),
             confirmText = stringResource(R.string.quit_confirm),
             onDismiss = viewModel::backToPause,
             onConfirm = onExit,
         )
-        GameOverlay.GAME_OVER -> {
-            val result = ui.result
-            if (result != null) {
-                GameOverOverlay(
-                    message = stringResource(
-                        R.string.game_over_message,
-                        playerName(viewModel, result.winner),
-                        result.winnerScore,
-                        result.loserScore,
-                    ),
-                    onOk = { onGameFinished(result) },
-                )
-            }
-        }
+        // The result screen takes over; nothing is drawn here and the board cannot be tapped.
+        GameOverlay.GAME_OVER -> Unit
     }
 }
 
