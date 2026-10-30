@@ -119,12 +119,15 @@ internal class BoardRenderer(
     private val handLayouts = arrayOfNulls<TextLayoutResult>(MAX_CACHED_NUMBER + 1)
     private var plusLayout: TextLayoutResult? = null
 
-    // The player's name sits in the table margin beside the board, on that player's own side.
-    // Indexed by Player.ordinal.
+    // Each player's name and score sit in the table margin at the end of the board, centred on that
+    // player's own store, on the side of the board where that player's pits are. Indexed by Player.ordinal.
     private val nameMaxWidth: Int = (boardW * NAME_WIDTH_OF_BOARD).roundToInt().coerceAtLeast(1)
     private val nameLayouts = arrayOfNulls<TextLayoutResult>(BoardDisplayState.PLAYER_COUNT)
-    private val nameX = FloatArray(BoardDisplayState.PLAYER_COUNT)
+    private val scoreLayouts = arrayOfNulls<TextLayoutResult>(MAX_CACHED_NUMBER + 1)
+    private val plateX = FloatArray(BoardDisplayState.PLAYER_COUNT)
     private val nameY = FloatArray(BoardDisplayState.PLAYER_COUNT)
+    private val scoreY = FloatArray(BoardDisplayState.PLAYER_COUNT)
+    private var scoreStyle: TextStyle = TextStyle.Default
 
     // Glow rings.
     private val pitRingRadius: Float = (geometry.pitOuterRingRadiusW + RING_MARGIN_W) * boardW
@@ -177,10 +180,15 @@ internal class BoardRenderer(
         }
         val boardBottom = board.top + board.height
         val boardCenterY = board.top + board.height / 2f
+        // Both players use the same font sizes, kept inside the smaller of the two margins.
+        val smallestBand = max(1f, min(board.top, screenHeight - boardBottom))
+        val nameFontPx = max(min(NAME_FONT_W * boardW, smallestBand * NAME_BAND_SHARE), NAME_MIN_DP * dp)
+        val scoreFontPx = max(min(SCORE_FONT_W * boardW, smallestBand * SCORE_BAND_SHARE), SCORE_MIN_DP * dp)
+        val plateNameStyle = nameStyle(nameFontPx, density)
+        scoreStyle = scoreTextStyle(scoreFontPx, density)
+        val scoreHeight = measurer.measure("0", scoreStyle).size.height
         for (o in 0 until BoardDisplayState.PLAYER_COUNT) {
-            val name = playerNames.getOrNull(o)?.trim().orEmpty()
-            if (name.isEmpty()) continue
-            // The name goes in the margin on the side of the board where this player's pits are.
+            // The plate goes in the margin on the side of the board where this player's pits are.
             val firstPit = o * GameState.PITS_PER_SIDE
             var pitRowY = 0f
             for (pit in firstPit until firstPit + GameState.PITS_PER_SIDE) pitRowY += pitY[pit]
@@ -188,18 +196,26 @@ internal class BoardRenderer(
             val above = pitRowY < boardCenterY
             val bandTop = if (above) 0f else boardBottom
             val bandHeight = max(1f, if (above) board.top else screenHeight - boardBottom)
-            val fontPx = max(min(NAME_FONT_W * boardW, bandHeight * NAME_BAND_SHARE), NAME_MIN_DP * dp)
-            val layout = measurer.measure(
-                text = name,
-                style = nameStyle(fontPx, density),
-                overflow = TextOverflow.Ellipsis,
-                maxLines = 1,
-                constraints = Constraints(maxWidth = nameMaxWidth),
-            )
-            nameLayouts[o] = layout
-            nameX[o] = board.x(0.5f) - layout.size.width / 2f
-            val centeredY = bandTop + (bandHeight - layout.size.height) / 2f
-            nameY[o] = centeredY.coerceIn(0f, max(0f, screenHeight - layout.size.height))
+            val name = playerNames.getOrNull(o)?.trim().orEmpty()
+            val nameLayout = if (name.isEmpty()) {
+                null
+            } else {
+                measurer.measure(
+                    text = name,
+                    style = plateNameStyle,
+                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                    constraints = Constraints(maxWidth = nameMaxWidth),
+                )
+            }
+            nameLayouts[o] = nameLayout
+            plateX[o] = storeX[o]
+            val nameHeight = nameLayout?.size?.height ?: 0
+            val gap = if (nameLayout == null) 0f else PLATE_GAP_DP * dp
+            val plateHeight = nameHeight + gap + scoreHeight
+            val top = (bandTop + (bandHeight - plateHeight) / 2f).coerceIn(0f, max(0f, screenHeight - plateHeight))
+            nameY[o] = top
+            scoreY[o] = top + nameHeight + gap
         }
         val image = backgroundImage
         if (image != null) {
@@ -221,7 +237,7 @@ internal class BoardRenderer(
         drawStoreSeeds(display)
         drawGlows(display, pulse)
         drawBadges(display)
-        drawPlayerNames()
+        drawPlayerNames(display)
         drawCaptureFly(display)
         drawHand(display)
         drawHop(display)
@@ -357,11 +373,17 @@ internal class BoardRenderer(
         }
     }
 
-    /** The names sit in the table margin beside the board, centred on it, each on its own player's side. */
-    private fun DrawScope.drawPlayerNames() {
+    /** Each player's name and score, centred on that player's store, in the table margin. */
+    private fun DrawScope.drawPlayerNames(display: BoardDisplayState) {
         for (o in 0 until BoardDisplayState.PLAYER_COUNT) {
-            val layout = nameLayouts[o] ?: continue
-            drawText(textLayoutResult = layout, topLeft = Offset(nameX[o], nameY[o]))
+            val name = nameLayouts[o]
+            if (name != null) {
+                val x = (plateX[o] - name.size.width / 2f).coerceIn(0f, max(0f, screenWidth - name.size.width))
+                drawText(textLayoutResult = name, topLeft = Offset(x, nameY[o]))
+            }
+            val score = scoreLayout(display.stores[o])
+            val scoreX = (plateX[o] - score.size.width / 2f).coerceIn(0f, max(0f, screenWidth - score.size.width))
+            drawText(textLayoutResult = score, topLeft = Offset(scoreX, scoreY[o]))
         }
     }
 
@@ -468,6 +490,8 @@ internal class BoardRenderer(
 
     private fun handLayout(count: Int): TextLayoutResult = cachedLayout(handLayouts, count, handTextStyle)
 
+    private fun scoreLayout(count: Int): TextLayoutResult = cachedLayout(scoreLayouts, count, scoreStyle)
+
     private fun cachedLayout(cache: Array<TextLayoutResult?>, count: Int, style: TextStyle): TextLayoutResult {
         if (count < 0 || count > MAX_CACHED_NUMBER) return measurer.measure(count.toString(), style)
         return cache[count] ?: measurer.measure(count.toString(), style).also { cache[count] = it }
@@ -478,6 +502,15 @@ internal class BoardRenderer(
         fontWeight = FontWeight.SemiBold,
         fontSize = with(density) { fontPx.toSp() },
         color = StoreNameText,
+        textAlign = TextAlign.Center,
+        shadow = Shadow(color = StoreNameShadow, offset = Offset(0f, 2f * dp), blurRadius = 4f * dp),
+    )
+
+    private fun scoreTextStyle(fontPx: Float, density: Density): TextStyle = TextStyle(
+        fontFamily = BodyFont,
+        fontWeight = FontWeight.Bold,
+        fontSize = with(density) { fontPx.toSp() },
+        color = BadgeText,
         textAlign = TextAlign.Center,
         shadow = Shadow(color = StoreNameShadow, offset = Offset(0f, 2f * dp), blurRadius = 4f * dp),
     )
@@ -504,11 +537,15 @@ internal class BoardRenderer(
         // The badge number is about 0.536 of the badge diameter (0.0145 / 0.027 of the board width for pits).
         const val NUMBER_TEXT_SCALE = 0.536f
         const val PLUS_TEXT_SCALE = 0.70f
-        // Player names in the table margin: a share of the board width, kept inside the margin band.
-        const val NAME_FONT_W = 0.030f
-        const val NAME_BAND_SHARE = 0.45f
+        // Player names and scores in the table margin: a share of the board width, kept inside the margin band.
+        const val NAME_FONT_W = 0.022f
+        const val NAME_BAND_SHARE = 0.28f
         const val NAME_MIN_DP = 10f
-        const val NAME_WIDTH_OF_BOARD = 0.5f
+        const val NAME_WIDTH_OF_BOARD = 0.22f
+        const val SCORE_FONT_W = 0.040f
+        const val SCORE_BAND_SHARE = 0.40f
+        const val SCORE_MIN_DP = 14f
+        const val PLATE_GAP_DP = 2f
 
         const val HAND_SLOTS = 5
         const val HAND_KEY = 30
