@@ -61,6 +61,8 @@ internal class BoardRenderer(
     density: Density,
     private val measurer: TextMeasurer,
     playerNames: List<String>,
+    private val playerWins: List<Int> = emptyList(),
+    private val winsLabel: String = "",
 ) {
     private val dp: Float = density.density
     private val boardW: Float = board.width
@@ -381,7 +383,7 @@ internal class BoardRenderer(
                 val x = (plateX[o] - name.size.width / 2f).coerceIn(0f, max(0f, screenWidth - name.size.width))
                 drawText(textLayoutResult = name, topLeft = Offset(x, nameY[o]))
             }
-            val score = scoreLayout(display.stores[o])
+            val score = scoreLayout(playerWins.getOrNull(o) ?: 0)
             val scoreX = (plateX[o] - score.size.width / 2f).coerceIn(0f, max(0f, screenWidth - score.size.width))
             drawText(textLayoutResult = score, topLeft = Offset(scoreX, scoreY[o]))
         }
@@ -490,7 +492,11 @@ internal class BoardRenderer(
 
     private fun handLayout(count: Int): TextLayoutResult = cachedLayout(handLayouts, count, handTextStyle)
 
-    private fun scoreLayout(count: Int): TextLayoutResult = cachedLayout(scoreLayouts, count, scoreStyle)
+    private fun scoreLayout(count: Int): TextLayoutResult {
+        val text = "$winsLabel: $count"
+        if (count < 0 || count > MAX_CACHED_NUMBER) return measurer.measure(text, scoreStyle)
+        return scoreLayouts[count] ?: measurer.measure(text, scoreStyle).also { scoreLayouts[count] = it }
+    }
 
     private fun cachedLayout(cache: Array<TextLayoutResult?>, count: Int, style: TextStyle): TextLayoutResult {
         if (count < 0 || count > MAX_CACHED_NUMBER) return measurer.measure(count.toString(), style)

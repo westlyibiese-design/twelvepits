@@ -1,5 +1,6 @@
 package com.westly.twelvepits.feature.game.ui
 
+import androidx.compose.runtime.collectAsState
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -162,7 +163,11 @@ private fun GameBoardLayer(
             )
         }
         val playerNames = listOf(viewModel.config.player1Name, viewModel.config.player2Name)
-        val renderer = remember(assets, board, seedImage, mapper, widthPx, heightPx, density, measurer, playerNames) {
+        val savedData by viewModel.savedData.collectAsState(initial = null)
+        val tally = savedData?.scores?.tally(viewModel.config.mode, viewModel.config.difficulty)
+        val playerWins = listOf(tally?.playerOne ?: 0, tally?.playerTwo ?: 0)
+        val winsLabel = stringResource(R.string.board_wins_label)
+        val renderer = remember(assets, board, seedImage, mapper, widthPx, heightPx, density, measurer, playerNames, playerWins, winsLabel) {
             BoardRenderer(
                 geometry = geometry,
                 mapper = mapper,
@@ -175,6 +180,8 @@ private fun GameBoardLayer(
                 density = density,
                 measurer = measurer,
                 playerNames = playerNames,
+                playerWins = playerWins,
+                winsLabel = winsLabel,
             )
         }
         val minTapRadius = with(density) { GameDimens.MinPitTapRadius.toPx() }

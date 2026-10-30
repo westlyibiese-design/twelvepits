@@ -146,4 +146,5 @@
     <string name="game_error_geometry_invalid">The board data file is not valid. Please reinstall the game.</string>
     <string name="game_error_image_missing">A board picture could not be read. Please reinstall the game.</string>
     <string name="game_error_detail">Details: %1$s</string>
+    <string name="board_wins_label">Wins</string>
 </resources>

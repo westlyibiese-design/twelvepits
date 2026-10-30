@@ -109,6 +109,10 @@ class GameViewModel(
     /** What the board shows. The draw code reads it every frame. */
     val display = BoardDisplayState()
 
+    /** The saved data. The board reads the games each player has won from it. */
+    val savedData: kotlinx.coroutines.flow.Flow<com.westly.twelvepits.feature.game.data.GameData>
+        get() = savedGames.data
+
     /** Changes on every animation frame so the board is drawn again. */
     val frameTick = mutableLongStateOf(0L)
 
