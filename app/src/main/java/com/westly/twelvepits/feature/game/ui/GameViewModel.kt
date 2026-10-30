@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.westly.twelvepits.core.audio.HapticEffect
 import com.westly.twelvepits.core.audio.Sfx
 import com.westly.twelvepits.core.audio.SoundManager
 import com.westly.twelvepits.core.model.GameConfig
@@ -135,9 +136,15 @@ class GameViewModel(
 
         override fun drop() = sound.playSeedDrop()
 
-        override fun capture() = sound.playSfx(Sfx.CAPTURE)
+        override fun capture() {
+            sound.playSfx(Sfx.CAPTURE)
+            sound.vibrate(HapticEffect.CAPTURE)
+        }
 
-        override fun turnSkipped() = sound.playSfx(Sfx.TURN_SKIPPED)
+        override fun turnSkipped() {
+            sound.playSfx(Sfx.TURN_SKIPPED)
+            sound.vibrate(HapticEffect.TURN_SKIPPED)
+        }
     }
 
     init {
@@ -275,6 +282,7 @@ class GameViewModel(
             invalidTap(pit)
             return
         }
+        sound.vibrate(HapticEffect.PIT_TAP)
         startTurn(state, pit)
     }
 
@@ -312,6 +320,7 @@ class GameViewModel(
 
     private fun invalidTap(pit: Int) {
         sound.playSfx(Sfx.INVALID_MOVE)
+        sound.vibrate(HapticEffect.INVALID_MOVE)
         display.startShake(pit)
         frameTick.longValue += 1
         refreshNeedsFrames()

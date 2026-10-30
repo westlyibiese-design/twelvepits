@@ -1,4 +1,4 @@
-name: Build signed release APK
+name: Build signed release APK and AAB
 
 on:
   push:
@@ -57,22 +57,42 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
           echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
-      - name: Build the signed release APK
+      - name: Build the signed release APK and the signed App Bundle (AAB)
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease bundleRelease
 
-      - name: Name the APK and check it is signed
+      - name: Name the APK and the AAB and check both are signed
         run: |
-          VERSION_NAME=$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
+          VERSION_NAME=$(grep -m1 '^appVersionName=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          if [ -z "$VERSION_NAME" ]; then
+            echo "appVersionName is missing in gradle.properties."
+            exit 1
+          fi
           mkdir -p dist
           APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
+          AAB=$(ls app/build/outputs/bundle/release/*.aab | head -n 1)
           cp "$APK" "dist/TwelvePits-${VERSION_NAME}.apk"
+          cp "$AAB" "dist/TwelvePits-${VERSION_NAME}.aab"
           APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
           "$APKSIGNER" verify "dist/TwelvePits-${VERSION_NAME}.apk"
           echo "APK is signed: TwelvePits-${VERSION_NAME}.apk"
+          AAB_CHECK=$(jarsigner -verify "dist/TwelvePits-${VERSION_NAME}.aab" 2>&1 || true)
+          echo "$AAB_CHECK" | tail -n 3
+          echo "$AAB_CHECK" | grep -q "jar verified"
+          echo "AAB is signed: TwelvePits-${VERSION_NAME}.aab"
+
+      - name: Check the permissions inside the APK
+        run: |
+          AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -n 1)
+          PERMISSIONS=$("$AAPT2" dump permissions dist/*.apk)
+          echo "$PERMISSIONS"
+          if echo "$PERMISSIONS" | grep -q "android.permission.INTERNET"; then
+            echo "The APK asks for INTERNET. This game must not."
+            exit 1
+          fi
 
       - name: Remove the keystore from the runner
         if: always()
@@ -83,4 +103,11 @@ jobs:
         with:
           name: TwelvePits-release-apk
           path: dist/*.apk
+          if-no-files-found: error
+
+      - name: Upload the AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: TwelvePits-release-aab
+          path: dist/*.aab
           if-no-files-found: error

@@ -93,6 +93,7 @@ object TwelvePitsType {
         fontWeight = FontWeight.Normal,
         fontSize = 13.sp,
         letterSpacing = 1.sp,
-        color = Ivory.copy(alpha = 0.60f),
+        // 70% ivory keeps at least 4.5:1 contrast on the brightest part of the wood background.
+        color = Ivory.copy(alpha = 0.70f),
     )
 }

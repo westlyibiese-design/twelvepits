@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -94,7 +95,7 @@ fun SettingsControls(
     val scope = rememberCoroutineScope()
 
     Column(modifier = modifier.fillMaxWidth()) {
-        SettingRow(label = stringResource(R.string.settings_music), minHeight = rowMinHeight) {
+        SettingRow(label = stringResource(R.string.settings_music), minHeight = rowMinHeight, mergeSemantics = true) {
             GoldSwitch(
                 checked = musicOn,
                 onCheckedChange = { scope.launch { settings.setMusicEnabled(it) } },
@@ -126,14 +127,14 @@ fun SettingsControls(
             )
         }
         Divider()
-        SettingRow(label = stringResource(R.string.settings_sound_effects), minHeight = rowMinHeight) {
+        SettingRow(label = stringResource(R.string.settings_sound_effects), minHeight = rowMinHeight, mergeSemantics = true) {
             GoldSwitch(
                 checked = effectsOn,
                 onCheckedChange = { scope.launch { settings.setSoundEffectsEnabled(it) } },
             )
         }
         Divider()
-        SettingRow(label = stringResource(R.string.settings_vibration), minHeight = rowMinHeight) {
+        SettingRow(label = stringResource(R.string.settings_vibration), minHeight = rowMinHeight, mergeSemantics = true) {
             GoldSwitch(
                 checked = vibrationOn,
                 onCheckedChange = { scope.launch { settings.setVibrationEnabled(it) } },
@@ -241,10 +242,15 @@ private fun SettingRow(
     label: String,
     labelWeight: Float = 1f,
     minHeight: Dp = 64.dp,
+    // One element for the label and its switch, so a screen reader says "Music, switch, on".
+    mergeSemantics: Boolean = false,
     control: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = minHeight),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = minHeight)
+            .then(if (mergeSemantics) Modifier.semantics(mergeDescendants = true) {} else Modifier),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Normal permission: no question is ever asked. It lets the game vibrate when Vibration is on. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:name=".TwelvePitsApp"
         android:allowBackup="false"
+        android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"

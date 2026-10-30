@@ -53,6 +53,9 @@ object GameDimens {
     val MinPitTapRadius = 24.dp
 
     val ControlSize = 44.dp
+
+    /** The touch area of a control: 48dp, a little larger than the 44dp button that is drawn. */
+    val ControlHitSize = 48.dp
     val ControlBorder = 1.dp
     val ControlGap = 12.dp
     val ControlEdgeMargin = 18.dp

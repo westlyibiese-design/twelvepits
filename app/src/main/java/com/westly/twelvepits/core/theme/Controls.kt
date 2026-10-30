@@ -48,6 +48,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
@@ -129,6 +130,12 @@ fun GoldSlider(
             .semantics {
                 contentDescription = description
                 progressBarRangeInfo = ProgressBarRangeInfo(shown, 0f..1f)
+                // A screen reader can raise and lower the value with its own gestures.
+                setProgress { newValue ->
+                    currentOnChange(newValue.coerceIn(0f, 1f))
+                    currentOnFinished()
+                    true
+                }
             }
             .pointerInput(Unit) {
                 detectTapGestures { offset ->

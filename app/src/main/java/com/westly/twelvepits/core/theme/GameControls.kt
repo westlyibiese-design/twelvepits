@@ -22,7 +22,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** A control on the game screen: 44dp, gold on dark, 12dp corners. Plays the tap sound. */
+/** A control on the game screen: 44dp, gold on dark, 12dp corners, inside a 48dp touch area. Plays the tap sound. */
 @Composable
 fun GameControlButton(
     contentDescription: String,
@@ -32,15 +32,21 @@ fun GameControlButton(
 ) {
     Box(
         modifier = modifier
-            .size(GameDimens.ControlSize)
-            .clip(ButtonShape)
-            .background(GameControlFill)
-            .border(BorderStroke(GameDimens.ControlBorder, GameControlBorder), ButtonShape)
+            .size(GameDimens.ControlHitSize)
             .semantics { this.contentDescription = contentDescription }
             .tapClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        content()
+        Box(
+            modifier = Modifier
+                .size(GameDimens.ControlSize)
+                .clip(ButtonShape)
+                .background(GameControlFill)
+                .border(BorderStroke(GameDimens.ControlBorder, GameControlBorder), ButtonShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+        }
     }
 }
 

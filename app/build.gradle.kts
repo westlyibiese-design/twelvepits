@@ -10,6 +10,13 @@ val keystoreFile: String? = System.getenv("KEYSTORE_FILE")
 val keystorePassword: String? = System.getenv("KEYSTORE_PASSWORD")
 val keyAliasName: String? = System.getenv("KEY_ALIAS")
 val keyPasswordValue: String? = System.getenv("KEY_PASSWORD")
+
+// The version name is written once, in gradle.properties. The version code grows with every GitHub run,
+// so every upload is higher than the one before. The offset keeps it above the first builds, which used 1.
+val appVersionName: String = providers.gradleProperty("appVersionName").get()
+val githubRunNumber: Int = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+val versionCodeOffset = 100
+
 val canSignRelease: Boolean =
     !keystoreFile.isNullOrBlank() &&
         file(keystoreFile).isFile &&
@@ -25,8 +32,8 @@ android {
         applicationId = "com.westly.twelvepits"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = githubRunNumber + versionCodeOffset
+        versionName = appVersionName
     }
 
     signingConfigs {
@@ -42,7 +49,14 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 shrinks and renames the code, and unused resources are removed.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            isDebuggable = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             if (canSignRelease) {
                 signingConfig = signingConfigs.getByName("release")
             }

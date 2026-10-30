@@ -232,9 +232,12 @@ internal class BoardRenderer(
         }
     }
 
-    /** Draws one frame. [pulse] is the gentle 0.7 to 1.0 pulse of the turn glow. */
+    /**
+     * Draws one frame of everything that moves or changes: seeds, glows, numbers, names and the effects.
+     * [pulse] is the gentle 0.7 to 1.0 pulse of the turn glow. The table and the board are not part of it:
+     * they never change, so [drawTable] draws them once into a layer of their own.
+     */
     fun DrawScope.drawScene(display: BoardDisplayState, pulse: Float) {
-        drawTable()
         drawPitSeeds(display)
         drawStoreSeeds(display)
         drawGlows(display, pulse)
@@ -246,7 +249,8 @@ internal class BoardRenderer(
         drawFloaters(display)
     }
 
-    private fun DrawScope.drawTable() {
+    /** The table, the soft shadow and the board picture. They change only when the screen size changes. */
+    fun DrawScope.drawTable() {
         drawRect(Ink)
         val background = backgroundImage
         if (background != null) {

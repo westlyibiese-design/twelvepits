@@ -147,4 +147,17 @@
     <string name="game_error_image_missing">A board picture could not be read. Please reinstall the game.</string>
     <string name="game_error_detail">Details: %1$s</string>
     <string name="board_wins_label">Wins</string>
+
+    <!-- Spoken descriptions of the board for screen readers -->
+    <plurals name="a11y_seed_count">
+        <item quantity="one">%d seed</item>
+        <item quantity="other">%d seeds</item>
+    </plurals>
+    <string name="a11y_pit">Pit %1$d, %2$s, %3$s</string>
+    <string name="a11y_owner_you">your pit</string>
+    <string name="a11y_owner_computer">the computer\'s pit</string>
+    <string name="a11y_owner_named">%1$s\'s pit</string>
+    <string name="a11y_store_left">Left store, %1$s</string>
+    <string name="a11y_store_right">Right store, %1$s</string>
+    <string name="a11y_sow_action">Sow from this pit</string>
 </resources>

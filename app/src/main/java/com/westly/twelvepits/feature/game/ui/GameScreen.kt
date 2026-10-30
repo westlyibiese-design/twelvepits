@@ -5,7 +5,9 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
+import android.content.pm.ApplicationInfo
 import android.os.Build
+import android.util.Log
 import android.view.View
 import android.view.Window
 import android.view.WindowManager
@@ -29,13 +31,17 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -57,12 +63,17 @@ import com.westly.twelvepits.core.theme.Ink
 import com.westly.twelvepits.core.theme.OutlinedGoldButton
 import com.westly.twelvepits.core.theme.TwelvePitsType
 import com.westly.twelvepits.core.theme.labelRes
+import com.westly.twelvepits.core.theme.rememberAnimationsEnabled
 import com.westly.twelvepits.feature.result.GameResult
 import kotlinx.coroutines.flow.collectLatest
 import kotlin.math.roundToInt
 
 private const val PULSE_MS = 1400
 private const val PULSE_LOW = 0.7f
+
+/** A frame that takes longer than this is reported in debug builds (two missed frames at 60 Hz). */
+private const val SLOW_FRAME_MS = 32f
+private const val LOG_TAG = "TwelvePits"
 
 /**
  * The game screen. Landscape, full screen, nothing on it except the table and the board: the
@@ -185,17 +196,19 @@ private fun GameBoardLayer(
             )
         }
         val minTapRadius = with(density) { GameDimens.MinPitTapRadius.toPx() }
-        val pulseTransition = rememberInfiniteTransition(label = "turnPulse")
-        val pulse by pulseTransition.animateFloat(
-            initialValue = PULSE_LOW,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(PULSE_MS, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-            label = "turnPulseValue",
-        )
+        // With "Remove animations" on, the turn glow stays still at full strength.
+        val pulse by rememberTurnPulse(animated = rememberAnimationsEnabled())
 
+        // The table and the board never change: a layer of their own, drawn once and reused every frame.
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
+        ) {
+            with(renderer) { drawTable() }
+        }
+
+        // Everything that moves. Only this layer is drawn again on an animation frame.
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -215,6 +228,17 @@ private fun GameBoardLayer(
             if (tick >= 0L) {
                 with(renderer) { drawScene(viewModel.display, pulse) }
             }
+        }
+
+        // A screen reader finds the pits and the stores here. Not while a panel covers the board.
+        if (ui.overlay == GameOverlay.NONE) {
+            BoardAccessibilityLayer(
+                viewModel = viewModel,
+                mapper = mapper,
+                board = board,
+                geometry = geometry,
+                minRadiusPx = minTapRadius,
+            )
         }
 
         val skippedName = ui.bannerPlayer?.let { playerName(viewModel, it) }
@@ -325,17 +349,46 @@ private fun LoadErrorPanel(state: AssetsState.Failed, onExit: () -> Unit) {
 /** Runs the frame clock only while something moves, so an idle board costs no battery. */
 @Composable
 private fun GameFrameLoop(viewModel: GameViewModel) {
+    val context = LocalContext.current
+    // Debug builds only: a slow frame is written to the log, so jank can be found. Release builds never log it.
+    val debugBuild = remember(context) {
+        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    }
     LaunchedEffect(viewModel) {
         snapshotFlow { viewModel.needsFrames }.collectLatest { needed ->
             if (needed) {
                 viewModel.onFrameLoopStarted()
+                var previousNanos = 0L
                 while (true) {
                     val nanos = withFrameNanos { it }
+                    if (debugBuild && previousNanos != 0L) {
+                        val frameMs = (nanos - previousNanos) / 1_000_000f
+                        if (frameMs > SLOW_FRAME_MS) {
+                            Log.w(LOG_TAG, "Slow frame on the game screen: ${frameMs.toInt()} ms")
+                        }
+                    }
+                    previousNanos = nanos
                     viewModel.onFrame(nanos)
                 }
             }
         }
     }
+}
+
+/** The 0.7 to 1.0 pulse of the turn glow, or a fixed 1.0 when animations are switched off. */
+@Composable
+private fun rememberTurnPulse(animated: Boolean): State<Float> {
+    if (!animated) return remember { mutableFloatStateOf(1f) }
+    val transition = rememberInfiniteTransition(label = "turnPulse")
+    return transition.animateFloat(
+        initialValue = PULSE_LOW,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(PULSE_MS, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "turnPulseValue",
+    )
 }
 
 /**

@@ -30,7 +30,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -97,7 +99,7 @@ internal fun GameControlsLayer(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = cueTop, end = cueRight)
-                    .size(GameDimens.ControlSize)
+                    .size(GameDimens.ControlHitSize)
                     .alpha(GameDimens.CUE_ALPHA * (1f - fade))
                     .semantics { contentDescription = cueDescription }
                     .tapClickable(enabled = !visible, onClick = onShow),
@@ -164,6 +166,7 @@ internal fun TurnSkippedBanner(
                 text = stringResource(R.string.game_turn_skipped, lastName.value),
                 style = TwelvePitsType.body.copy(textAlign = TextAlign.Center),
                 modifier = Modifier
+                    .semantics { liveRegion = LiveRegionMode.Polite }
                     .clip(shape)
                     .background(ControlFill.copy(alpha = GameDimens.BANNER_FILL_ALPHA))
                     .border(BorderStroke(GameDimens.ControlBorder, GoldLine), shape)

@@ -32,9 +32,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import com.westly.twelvepits.R
+import com.westly.twelvepits.core.audio.HapticEffect
 import com.westly.twelvepits.core.audio.Sfx
 import com.westly.twelvepits.core.audio.SoundManager
 import com.westly.twelvepits.core.model.AvatarId
@@ -74,6 +79,7 @@ fun ResultScreen(
     // The game music has stopped. Play the result sound, then bring the menu music back.
     LaunchedEffect(result) {
         sound.playSfx(if (isDefeat) Sfx.DEFEAT else Sfx.VICTORY)
+        sound.vibrate(if (isDefeat) HapticEffect.DEFEAT else HapticEffect.VICTORY)
         delay(if (isDefeat) DEFEAT_SOUND_MS else VICTORY_SOUND_MS)
         sound.startMenuMusic()
     }
@@ -175,7 +181,9 @@ private fun Headline(result: GameResult) {
             stringResource(R.string.result_seeds_captured, result.winnerScore)
         else -> stringResource(R.string.result_captured, result.winnerName, result.winnerScore)
     }
+    // A live region: a screen reader announces the result as soon as it is shown.
     Column(
+        modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(ResultDimens.TitleGap),
     ) {
@@ -253,6 +261,7 @@ private fun ScoreColumn(
             text = name,
             style = ResultType.scoreName.copy(textAlign = TextAlign.Center),
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         BasicText(text = score.toString(), style = numberStyle)
     }
