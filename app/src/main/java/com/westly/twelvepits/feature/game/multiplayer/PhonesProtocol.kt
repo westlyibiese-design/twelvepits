@@ -260,14 +260,14 @@ object ProtocolCodec {
 
     /** Numbers arrive as Double. The state reader wants Int. A number that is not a whole number stays a Double and is refused. */
     private fun normalize(value: Any?): Any? = when (value) {
-        is Double -> if (value == Math.rint(value) && Math.abs(value) < 2.0e9) value.toInt() else value
+        is Double -> if (value == Math.rint(value) && value >= -2147483648.0 && value <= 2147483647.0) value.toInt() else value
         is List<*> -> value.map { normalize(it) }
         else -> value
     }
 
     private fun intOf(raw: Any?): Int? {
         if (raw !is Double) return null
-        if (raw != Math.rint(raw) || Math.abs(raw) > 2.0e9) return null
+        if (raw != Math.rint(raw) || raw < -2147483648.0 || raw > 2147483647.0) return null
         return raw.toInt()
     }
 

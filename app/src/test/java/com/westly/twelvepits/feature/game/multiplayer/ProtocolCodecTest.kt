@@ -209,4 +209,12 @@ class ProtocolCodecTest {
         assertNotEquals(StateHash.of(start), StateHash.of(after))
         assertNotEquals(StateHash.of(after), StateHash.of(after.copy(moveNumber = after.moveNumber + 1)))
     }
+
+    @Test
+    fun everyPossibleHashSurvivesTheTrip() {
+        for (hash in listOf(Int.MIN_VALUE, Int.MAX_VALUE, -2_100_000_000, 2_100_000_000, -1, 0, 1)) {
+            val back = roundTrip(PhonesMessage.TurnApplied("g1", 1, 0, Player.ONE, hash)) as PhonesMessage.TurnApplied
+            assertEquals(hash, back.stateHash)
+        }
+    }
 }
