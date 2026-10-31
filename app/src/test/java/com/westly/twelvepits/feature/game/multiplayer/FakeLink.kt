@@ -39,34 +39,34 @@ class FakeLink {
     fun breakLink() {
         if (closedLink) return
         closedLink = true
-        queue.addLast { host.listener?.onDisconnected() }
-        queue.addLast { guest.listener?.onDisconnected() }
+        queue.addLast { host.receiver?.onDisconnected() }
+        queue.addLast { guest.receiver?.onDisconnected() }
     }
 
     internal fun search() {
         val player = hostPlayer ?: return
         if (!guestSearching || found) return
         found = true
-        queue.addLast { guest.listener?.onHostFound(FoundHost("host-1", player)) }
+        queue.addLast { guest.receiver?.onHostFound(FoundHost("host-1", player)) }
     }
 
     internal fun initiate() {
         val hostSide = hostPlayer ?: return
         val guestSide = guestPlayer ?: return
-        queue.addLast { host.listener?.onConnectionInitiated(authCode, guestSide) }
-        queue.addLast { guest.listener?.onConnectionInitiated(authCode, hostSide) }
+        queue.addLast { host.receiver?.onConnectionInitiated(authCode, guestSide) }
+        queue.addLast { guest.receiver?.onConnectionInitiated(authCode, hostSide) }
     }
 
     internal fun tryEstablish() {
         if (!host.accepted || !guest.accepted || established) return
         established = true
-        queue.addLast { host.listener?.onConnectionEstablished() }
-        queue.addLast { guest.listener?.onConnectionEstablished() }
+        queue.addLast { host.receiver?.onConnectionEstablished() }
+        queue.addLast { guest.receiver?.onConnectionEstablished() }
     }
 
     internal fun rejectedBy(byHost: Boolean) {
         val other = if (byHost) guest else host
-        queue.addLast { other.listener?.onConnectionFailed(ConnectFailure.REFUSED) }
+        queue.addLast { other.receiver?.onConnectionFailed(ConnectFailure.REFUSED) }
     }
 
     internal fun deliver(fromHost: Boolean, bytes: ByteArray) {
@@ -81,25 +81,25 @@ class FakeLink {
         }
         if (muted) return
         val target = if (fromHost) guest else host
-        queue.addLast { target.listener?.onMessage(payload) }
+        queue.addLast { target.receiver?.onMessage(payload) }
     }
 
     internal fun closedBy(byHost: Boolean) {
         if (!established || closedLink) return
         closedLink = true
         val other = if (byHost) guest else host
-        queue.addLast { other.listener?.onDisconnected() }
+        queue.addLast { other.receiver?.onDisconnected() }
     }
 }
 
 class FakeTransport(private val link: FakeLink, private val isHost: Boolean) : GameTransport {
-    var listener: TransportListener? = null
+    var receiver: TransportListener? = null
     var accepted = false
     var rejected = false
     var closeCalls = 0
 
     override fun setListener(listener: TransportListener?) {
-        this.listener = listener
+        this.receiver = listener
     }
 
     override fun startHosting(local: RemotePlayer) {
