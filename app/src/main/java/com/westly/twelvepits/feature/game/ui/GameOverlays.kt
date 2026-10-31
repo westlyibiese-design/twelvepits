@@ -81,6 +81,7 @@ private fun OverlayPanel(
 internal fun PauseOverlay(
     moveNumber: Int,
     difficulty: String?,
+    phones: Boolean = false,
     onResume: () -> Unit,
     onRestart: () -> Unit,
     onSettings: () -> Unit,
@@ -101,10 +102,12 @@ internal fun PauseOverlay(
                     text = stringResource(R.string.pause_title),
                     style = TwelvePitsType.screenTitle.copy(textAlign = TextAlign.Center),
                 )
-                BasicText(
-                    text = stringResource(R.string.pause_move, moveNumber),
-                    style = TwelvePitsType.bodyMuted.copy(textAlign = TextAlign.Center),
-                )
+                if (!phones) {
+                    BasicText(
+                        text = stringResource(R.string.pause_move, moveNumber),
+                        style = TwelvePitsType.bodyMuted.copy(textAlign = TextAlign.Center),
+                    )
+                }
                 if (difficulty != null) {
                     BasicText(
                         text = difficulty,
@@ -117,11 +120,14 @@ internal fun PauseOverlay(
                 verticalArrangement = Arrangement.spacedBy(GameDimens.ButtonGap),
             ) {
                 GoldButton(text = stringResource(R.string.pause_resume), onClick = onResume)
-                OutlinedGoldButton(
-                    text = stringResource(R.string.pause_restart),
-                    onClick = onRestart,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                // Two phones: nobody can restart a game that two players share.
+                if (!phones) {
+                    OutlinedGoldButton(
+                        text = stringResource(R.string.pause_restart),
+                        onClick = onRestart,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 OutlinedGoldButton(
                     text = stringResource(R.string.pause_settings),
                     onClick = onSettings,
@@ -189,6 +195,23 @@ internal fun ConfirmOverlay(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
             }
+        }
+    }
+}
+
+/** A message with one button. Used when a two-phone match ends before the game is finished. */
+@Composable
+internal fun MessageOverlay(
+    title: String,
+    message: String,
+    buttonText: String,
+    onClick: () -> Unit,
+) {
+    OverlayPanel {
+        Column(verticalArrangement = Arrangement.spacedBy(GameDimens.PanelGap)) {
+            BasicText(text = title, style = TwelvePitsType.sectionTitle)
+            BasicText(text = message, style = TwelvePitsType.body)
+            GoldButton(text = buttonText, onClick = onClick)
         }
     }
 }

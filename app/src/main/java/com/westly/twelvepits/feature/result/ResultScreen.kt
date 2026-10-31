@@ -43,6 +43,11 @@ import com.westly.twelvepits.core.audio.HapticEffect
 import com.westly.twelvepits.core.audio.Sfx
 import com.westly.twelvepits.core.audio.SoundManager
 import com.westly.twelvepits.core.model.AvatarId
+import com.westly.twelvepits.core.model.GameMode
+import com.westly.twelvepits.core.theme.GameDialog
+import com.westly.twelvepits.feature.game.multiplayer.EndReason
+import com.westly.twelvepits.feature.game.multiplayer.RematchState
+import com.westly.twelvepits.feature.game.multiplayer.endReasonText
 import com.westly.twelvepits.core.theme.GoldButton
 import com.westly.twelvepits.core.theme.GoldLine
 import com.westly.twelvepits.core.theme.Ink
@@ -63,9 +68,22 @@ import com.westly.twelvepits.core.model.Player
 private const val VICTORY_SOUND_MS = 2500L
 private const val DEFEAT_SOUND_MS = 2400L
 
+/** What the result screen needs on two phones: the play-again question between the two players. */
+class PhonesResultState(
+    val rematch: RematchState,
+    /** Set when the other player left or the connection broke: there will be no rematch. */
+    val endReason: EndReason?,
+    val opponentName: String,
+    val onCancelRequest: () -> Unit,
+    val onAccept: () -> Unit,
+    val onDecline: () -> Unit,
+    val onDismissDeclined: () -> Unit,
+)
+
 /**
  * The result screen (upright). Shown once for each finished game: a trophy (or the computer's
  * portrait after a defeat), the title, the final score, the statistics, and the two buttons.
+ * On two phones [phones] is set: PLAY AGAIN asks the other player, who can say yes or no.
  */
 @Composable
 fun ResultScreen(
@@ -73,6 +91,7 @@ fun ResultScreen(
     sound: SoundManager,
     onPlayAgain: () -> Unit,
     onMainMenu: () -> Unit,
+    phones: PhonesResultState? = null,
 ) {
     val isDefeat = result.headline == ResultHeadline.DEFEAT
 
@@ -115,7 +134,7 @@ fun ResultScreen(
                         ),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Hero(isDefeat = isDefeat)
+                        Hero(isDefeat = isDefeat, defeatAvatar = defeatAvatarOf(result))
                         Headline(result)
                         ScoreCard(result)
                         StatsCard(result)
@@ -127,7 +146,11 @@ fun ResultScreen(
                         .padding(vertical = ResultDimens.ButtonAreaPadding),
                     verticalArrangement = Arrangement.spacedBy(ResultDimens.ButtonGap),
                 ) {
-                    GoldButton(text = stringResource(R.string.result_play_again), onClick = onPlayAgain)
+                    if (phones == null) {
+                        GoldButton(text = stringResource(R.string.result_play_again), onClick = onPlayAgain)
+                    } else {
+                        PhonesButtons(phones = phones, onPlayAgain = onPlayAgain)
+                    }
                     OutlinedGoldButton(
                         text = stringResource(R.string.result_main_menu),
                         onClick = onMainMenu,
@@ -139,13 +162,68 @@ fun ResultScreen(
     }
 }
 
-/** The trophy with a soft emerald glow, or after a defeat the computer's portrait. */
+/** The portrait shown after a defeat: the computer's, or on two phones the winner's. */
+private fun defeatAvatarOf(result: GameResult): AvatarId = when {
+    result.config.mode != GameMode.TWO_PHONES -> AvatarId.LEOPARD
+    result.winner == Player.ONE -> result.config.player1Avatar
+    else -> result.config.player2Avatar
+}
+
+/** The buttons and questions of the play-again step between two phones. */
 @Composable
-private fun Hero(isDefeat: Boolean) {
+private fun PhonesButtons(phones: PhonesResultState, onPlayAgain: () -> Unit) {
+    if (phones.endReason != null) {
+        // The other player is gone: there is nobody to play again with.
+        BasicText(
+            text = endReasonText(phones.endReason, phones.opponentName),
+            style = ResultType.subline.copy(textAlign = TextAlign.Center),
+            modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+        )
+        return
+    }
+    when (phones.rematch) {
+        RematchState.MINE_PENDING -> {
+            BasicText(
+                text = stringResource(R.string.phones_rematch_waiting, phones.opponentName),
+                style = ResultType.subline.copy(textAlign = TextAlign.Center),
+                modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+            )
+            OutlinedGoldButton(
+                text = stringResource(R.string.dialog_cancel),
+                onClick = phones.onCancelRequest,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        else -> GoldButton(text = stringResource(R.string.result_play_again), onClick = onPlayAgain)
+    }
+    if (phones.rematch == RematchState.THEIRS_PENDING) {
+        GameDialog(
+            title = stringResource(R.string.phones_rematch_request_title, phones.opponentName),
+            message = stringResource(R.string.phones_rematch_request_message),
+            confirmText = stringResource(R.string.phones_rematch_accept),
+            dismissText = stringResource(R.string.phones_rematch_decline),
+            onConfirm = phones.onAccept,
+            onDismiss = phones.onDecline,
+        )
+    }
+    if (phones.rematch == RematchState.DECLINED) {
+        GameDialog(
+            title = stringResource(R.string.phones_rematch_declined_title),
+            message = stringResource(R.string.phones_rematch_declined, phones.opponentName),
+            confirmText = stringResource(R.string.dialog_ok),
+            onConfirm = phones.onDismissDeclined,
+            onDismiss = phones.onDismissDeclined,
+        )
+    }
+}
+
+/** The trophy with a soft emerald glow, or after a defeat a portrait. */
+@Composable
+private fun Hero(isDefeat: Boolean, defeatAvatar: AvatarId) {
     if (isDefeat) {
         Image(
-            painter = painterResource(AvatarId.LEOPARD.drawableRes),
-            contentDescription = stringResource(AvatarId.LEOPARD.labelRes),
+            painter = painterResource(defeatAvatar.drawableRes),
+            contentDescription = stringResource(defeatAvatar.labelRes),
             modifier = Modifier.size(ResultDimens.HeroSize),
             contentScale = ContentScale.Fit,
         )

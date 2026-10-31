@@ -1,8 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Normal permission: no question is ever asked. It lets the game vibrate when Vibration is on. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!--
+        Two phones (Phase 9). Nearby Connections finds the other phone and talks to it over Bluetooth and
+        Wi-Fi, with no internet. The list follows Google's "Nearby Connections: get started" page.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" android:maxSdkVersion="31" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" android:maxSdkVersion="31" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="28" />
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:minSdkVersion="29"
+        android:maxSdkVersion="31" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" android:minSdkVersion="31" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" android:minSdkVersion="31" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:minSdkVersion="31" />
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"
+        android:minSdkVersion="32" />
+
+    <!-- This game must never ask for the internet. If a library adds the permission, it is removed again here. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+
+    <!-- Phones without Bluetooth or Wi-Fi can still install the game and play the other modes. -->
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+    <uses-feature android:name="android.hardware.wifi" android:required="false" />
 
     <application
         android:name=".TwelvePitsApp"

@@ -31,7 +31,7 @@
     <string name="mode_two_players_title">Two players</string>
     <string name="mode_two_players_subtitle">Pass and play on one phone</string>
     <string name="mode_two_phones_title">Two phones</string>
-    <string name="mode_two_phones_subtitle">Coming soon</string>
+    <string name="mode_two_phones_subtitle">Play with a friend nearby</string>
 
     <!-- Game setup -->
     <string name="setup_title">Game setup</string>
@@ -86,13 +86,7 @@
     <string name="settings_footer_title">Twelve Pits (Ayo)</string>
     <string name="settings_footer_version">Version %1$s · © Neribo Group</string>
 
-    <!-- Temporary game screen (Replaced in Phase 4) -->
-    <string name="temp_game_title">Temporary screen</string>
-    <string name="temp_game_note">The game board is built in Phase 4. This screen only shows your choices.</string>
-    <string name="temp_game_mode">Mode: %1$s</string>
-    <string name="temp_game_difficulty">Difficulty: %1$s</string>
-    <string name="temp_game_player1">Player 1: %1$s (%2$s)</string>
-    <string name="temp_game_player2">Player 2: %1$s (%2$s)</string>
+    <!-- Names of the three modes -->
     <string name="mode_name_vs_computer">Against the computer</string>
     <string name="mode_name_two_players">Two players on one phone</string>
     <string name="mode_name_two_phones">Two phones</string>
@@ -160,4 +154,58 @@
     <string name="a11y_store_left">Left store, %1$s</string>
     <string name="a11y_store_right">Right store, %1$s</string>
     <string name="a11y_sow_action">Sow from this pit</string>
+
+    <!-- Two phones (Phase 9) -->
+    <string name="scores_two_phones_row">You %1$d · Opponent %2$d</string>
+    <string name="phones_title">Two phones</string>
+    <string name="phones_hint">Both phones need Bluetooth and Wi-Fi switched on. No internet is needed, and the phones must be close to each other.</string>
+    <string name="phones_host">HOST A GAME</string>
+    <string name="phones_join">JOIN A GAME</string>
+    <string name="phones_host_waiting_title">Waiting for a player…</string>
+    <string name="phones_host_waiting_body">You are hosting as %1$s. Ask your friend to open Two phones on their phone and tap JOIN A GAME. Keep this screen open.</string>
+    <string name="phones_join_title">Looking for games nearby…</string>
+    <string name="phones_join_empty">No game found yet. Make sure your friend tapped HOST A GAME.</string>
+    <string name="phones_connecting">Connecting to %1$s…</string>
+    <string name="phones_confirm_title">Is this the same code on both phones?</string>
+    <string name="phones_confirm_body">%1$s must see the same code on their phone.</string>
+    <string name="phones_confirm_yes">Yes, same code</string>
+    <string name="phones_confirm_no">No</string>
+    <string name="phones_confirm_waiting">Waiting for %1$s…</string>
+    <string name="phones_starting">Starting the game…</string>
+    <string name="phones_continue">Continue</string>
+    <string name="phones_try_again">Try again</string>
+    <string name="phones_open_settings">Open settings</string>
+    <string name="phones_error_title">Could not connect</string>
+    <string name="phones_error_start">The phone could not start looking for the other phone. Check that Bluetooth and Wi-Fi are on.</string>
+    <string name="phones_error_refused">The other player did not accept the connection.</string>
+    <string name="phones_error_timeout">The connection took too long. Move the phones closer and try again.</string>
+    <string name="phones_error_generic">Something went wrong. Try again.</string>
+    <string name="phones_unavailable_title">Not available on this phone</string>
+    <string name="phones_unavailable_message">Two phones needs Google Play services. Install or update it, make sure it is switched on, and try again.</string>
+    <string name="phones_permission_title">Allow nearby phones</string>
+    <string name="phones_permission_message">To find and connect to the other phone, Android asks you to allow access to nearby devices. It is used only for this game.</string>
+    <string name="phones_permission_message_location">To find and connect to the other phone, Android asks you to allow Location. The game never reads or saves where you are.</string>
+    <string name="phones_permission_denied_message">Without this permission the game cannot find the other phone.</string>
+    <string name="phones_permission_blocked_message">The permission is switched off. Open the settings of this game and allow it, then come back.</string>
+    <string name="phones_location_title">Switch on Location</string>
+    <string name="phones_location_message">On this version of Android, finding the other phone only works while Location is switched on. The game never reads or saves where you are.</string>
+    <string name="phones_leave_message">The game ends for both players.</string>
+    <string name="phones_end_title">Game ended</string>
+    <string name="phones_end_title_peer_left">%1$s left the game</string>
+    <string name="phones_end_title_lost">Connection lost</string>
+    <string name="phones_end_title_sync">The games got out of sync</string>
+    <string name="phones_end_title_version">Different versions</string>
+    <string name="phones_end_note">The game is over for both players. It was not saved and no score was recorded.</string>
+    <string name="phones_end_peer_left">%1$s left the game.</string>
+    <string name="phones_end_lost">The connection was lost.</string>
+    <string name="phones_end_sync">The games got out of sync.</string>
+    <string name="phones_end_version">The two phones have different versions of the game. Update the app on one phone.</string>
+    <string name="phones_end_you_left">You left the game.</string>
+    <string name="phones_rematch_waiting">Waiting for %1$s…</string>
+    <string name="phones_rematch_request_title">%1$s wants to play again</string>
+    <string name="phones_rematch_request_message">Start another game?</string>
+    <string name="phones_rematch_accept">Accept</string>
+    <string name="phones_rematch_decline">No thanks</string>
+    <string name="phones_rematch_declined_title">No rematch</string>
+    <string name="phones_rematch_declined">%1$s does not want to play again.</string>
 </resources>

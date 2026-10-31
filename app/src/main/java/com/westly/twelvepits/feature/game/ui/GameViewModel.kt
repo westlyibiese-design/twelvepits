@@ -24,11 +24,15 @@ import com.westly.twelvepits.feature.game.data.SavedGame
 import com.westly.twelvepits.feature.game.data.SavedGameStore
 import com.westly.twelvepits.feature.game.data.StartMode
 import com.westly.twelvepits.feature.game.data.TurnStats
+import com.westly.twelvepits.feature.game.data.finishedWinner
 import com.westly.twelvepits.feature.game.engine.EngineLogger
 import com.westly.twelvepits.feature.game.engine.GameState
 import com.westly.twelvepits.feature.game.engine.GameStatus
 import com.westly.twelvepits.feature.game.engine.IllegalMoveException
 import com.westly.twelvepits.feature.game.engine.SowingEngine
+import com.westly.twelvepits.feature.game.multiplayer.EndReason
+import com.westly.twelvepits.feature.game.multiplayer.MatchController
+import com.westly.twelvepits.feature.game.multiplayer.MatchItem
 import com.westly.twelvepits.feature.result.GameResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -54,6 +58,9 @@ enum class GameOverlay {
 
     /** The game is over. The screen is about to show the result screen; nothing can be tapped. */
     GAME_OVER,
+
+    /** Two phones: the other player left or the connection broke. The only way on is back to the menu. */
+    MATCH_ENDED,
 }
 
 /** Everything the screen needs to show that is not the board itself. */
@@ -69,6 +76,8 @@ data class GameUiState(
     val loadFailed: Boolean = false,
     /** Set once, when the game is over and its last animation has finished. */
     val result: GameResult? = null,
+    /** Two phones: why the match ended before the game was finished. */
+    val matchEnd: EndReason? = null,
 )
 
 /**
@@ -83,6 +92,8 @@ class GameViewModel(
     internal val sound: SoundManager,
     private val savedGames: SavedGameStore,
     computer: ComputerPlayer?,
+    /** Two phones: the match this game belongs to. Null in the other modes. */
+    private val match: MatchController? = null,
 ) : ViewModel() {
     private val engine = SowingEngine()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -147,6 +158,14 @@ class GameViewModel(
         }
     }
 
+    /** Two phones: accepted turns that wait for their animation, in order. */
+    private val pendingTurns = ArrayDeque<MatchItem>()
+    private val matchSink: (MatchItem) -> Unit = { item -> onMatchItem(item) }
+
+    /** Which player this phone is on two phones. Null in the other modes. */
+    val localPlayer: Player?
+        get() = match?.role
+
     init {
         display.reset(engineState)
         scope.launch {
@@ -169,6 +188,10 @@ class GameViewModel(
 
     /** Reads the starting position: a new game, or the saved game. */
     private fun loadStart() {
+        if (match != null) {
+            startMatch()
+            return
+        }
         scope.launch {
             val start = try {
                 savedGames.prepareStart(config, startMode)
@@ -224,7 +247,7 @@ class GameViewModel(
      * The app went to the background or the screen is being left: finish the turn's movement at once
      * with no sound, stop the clock and the computer's thinking, and save the position.
      */
-    fun onAppBackground() {
+    fun onAppBackground(isConfigurationChange: Boolean = false) {
         inForeground = false
         val running = animator
         if (running != null) {
@@ -236,6 +259,8 @@ class GameViewModel(
         syncClock()
         syncComputerTurn()
         saveProgress()
+        // Two phones: a phone that is stopped cannot play. It counts as leaving (a turn of the screen does not).
+        if (match != null && !isConfigurationChange) leaveBecauseStopped(match)
     }
 
     /** The frame loop (re)started, so the time before it must not count. */
@@ -275,6 +300,10 @@ class GameViewModel(
         if (animator != null) return
         if (state.status != GameStatus.IN_PROGRESS) return
         if (_uiState.value.overlay != GameOverlay.NONE) return
+        if (match != null) {
+            onMatchTap(match, state, pit)
+            return
+        }
         // Against the computer the human is Player ONE and cannot play during the computer's turn.
         if (isComputerTurn(state)) return
         if (pit !in 0 until GameState.PIT_COUNT) return
@@ -343,6 +372,7 @@ class GameViewModel(
             updateTurnGlow()
             _uiState.update { it.copy(moveNumber = state.moveNumber) }
             syncComputerTurn()
+            pumpMatchItems()
         }
         refreshNeedsFrames()
     }
@@ -355,16 +385,34 @@ class GameViewModel(
         clock.stop()
         if (!finishRecorded) {
             finishRecorded = true
-            savedGames.recordFinishedGame(config, state)
+            if (match != null) {
+                // Two phones: counted from this phone's side. Only the host moves the starter record on.
+                val localWon = finishedWinner(state) == match.role
+                savedGames.recordFinishedPhonesGame(
+                    localWon,
+                    if (match.role == Player.ONE) state.startingPlayer else null,
+                )
+            } else {
+                savedGames.recordFinishedGame(config, state)
+            }
             sound.stopMusic()
         }
-        val result = GameResult.from(config, state, stats, clock.elapsedMs())
+        val result = GameResult.from(
+            config,
+            state,
+            stats,
+            clock.elapsedMs(),
+            localPlayer = match?.role,
+            matchGameNumber = match?.gameNumber ?: 0,
+        )
         _uiState.update { it.copy(result = result, moveNumber = state.moveNumber) }
         setOverlay(GameOverlay.GAME_OVER)
     }
 
     /** Saves the position of a game in progress with at least one turn played. */
     private fun saveProgress() {
+        // A two-phone game is never saved: it cannot be continued after it was left.
+        if (match != null) return
         val state = engineState
         if (!_uiState.value.ready) return
         if (state.status != GameStatus.IN_PROGRESS || state.moveNumber <= 0) return
@@ -388,8 +436,14 @@ class GameViewModel(
             display.storeGlowPlayer = null
             return
         }
-        display.pitGlowPlayer = if (isComputerTurn(state)) null else state.currentPlayer
+        display.pitGlowPlayer = if (humanControls(state)) state.currentPlayer else null
         display.storeGlowPlayer = state.currentPlayer
+    }
+
+    /** True when a person on this phone can tap the pits of whoever plays. On two phones only the owner of the turn can. */
+    private fun humanControls(state: GameState): Boolean {
+        if (match != null) return state.currentPlayer == match.role
+        return !isComputerTurn(state)
     }
 
     private fun mirrorBanner() {
@@ -420,6 +474,98 @@ class GameViewModel(
         val wanted = ui.ready && inForeground && ui.overlay == GameOverlay.NONE && animator == null &&
             state.status == GameStatus.IN_PROGRESS && isComputerTurn(state)
         if (wanted) computer.start(state) else computer.cancel()
+    }
+
+    // ---- Two phones ----
+
+    /** Two phones: the starting position comes from the match, and every accepted turn is played in order. */
+    private fun startMatch() {
+        val controller = match ?: return
+        val start = controller.initialState
+        if (start == null) {
+            _uiState.update { it.copy(loadFailed = true) }
+            return
+        }
+        applyStart(GameStart(start, TurnStats(), 0L))
+        controller.attachTurnSink(matchSink)
+        scope.launch { controller.snapshot.collect { onMatchSnapshot(it) } }
+    }
+
+    /** A tap on a pit on two phones. Out of turn nothing happens at all. */
+    private fun onMatchTap(controller: MatchController, state: GameState, pit: Int) {
+        if (pendingTurns.isNotEmpty()) return
+        if (state.currentPlayer != controller.role) return
+        if (pit !in 0 until GameState.PIT_COUNT) return
+        if (GameState.ownerOfPit(pit) != controller.role || state.pits[pit] == 0) {
+            invalidTap(pit)
+            return
+        }
+        if (!controller.canLocalMove) return
+        sound.vibrate(HapticEffect.PIT_TAP)
+        controller.localMove(pit)
+    }
+
+    private fun onMatchItem(item: MatchItem) {
+        pendingTurns.addLast(item)
+        pumpMatchItems()
+    }
+
+    /** Starts the next waiting turn when nothing moves and no panel is open. */
+    private fun pumpMatchItems() {
+        if (match == null) return
+        while (animator == null && _uiState.value.ready && _uiState.value.overlay == GameOverlay.NONE) {
+            val item = pendingTurns.removeFirstOrNull() ?: return
+            when (item) {
+                is MatchItem.Turn -> beginMatchTurn(item)
+                is MatchItem.Replace -> replaceBoard(item.state)
+            }
+        }
+    }
+
+    private fun beginMatchTurn(item: MatchItem.Turn) {
+        val result = item.result
+        engineState = result.newState
+        stats = stats.afterTurn(item.mover, result.capturedForMover)
+        display.pitGlowPlayer = null
+        display.storeGlowPlayer = item.mover
+        animator = SowAnimator(display, result.events, { currentTiming }, sounds)
+        _uiState.update { it.copy(moveNumber = result.newState.moveNumber) }
+        refreshNeedsFrames()
+    }
+
+    /** The host sent the whole position: the board is set to it with no animation. */
+    private fun replaceBoard(state: GameState) {
+        engineState = state
+        display.reset(state)
+        updateTurnGlow()
+        _uiState.update { it.copy(moveNumber = state.moveNumber) }
+        frameTick.longValue += 1
+        refreshNeedsFrames()
+    }
+
+    private fun onMatchSnapshot(snapshot: com.westly.twelvepits.feature.game.multiplayer.MatchSnapshot) {
+        val reason = snapshot.endReason ?: return
+        val controller = match ?: return
+        if (reason == EndReason.LEFT_BY_ME) return
+        // A game that is over goes on to the result screen, which tells the same news.
+        if (controller.state.status == GameStatus.FINISHED) return
+        if (_uiState.value.matchEnd != null) return
+        _uiState.update { it.copy(matchEnd = reason) }
+        setOverlay(GameOverlay.MATCH_ENDED)
+    }
+
+    /** The phone was stopped during a game: the other player is told and this phone goes back to the menu. */
+    private fun leaveBecauseStopped(controller: MatchController) {
+        if (controller.endReason != null) return
+        controller.leave()
+        if (_uiState.value.result == null) {
+            _uiState.update { it.copy(matchEnd = EndReason.LEFT_BY_ME) }
+        }
+    }
+
+    /** The player chose to leave: the other phone is told once. */
+    fun leaveMatch() {
+        match?.leave()
     }
 
     // ---- Controls ----
@@ -482,7 +628,7 @@ class GameViewModel(
             GameOverlay.LEAVE -> stay()
             GameOverlay.PAUSE -> resume()
             GameOverlay.SETTINGS, GameOverlay.RESTART_CONFIRM, GameOverlay.QUIT_CONFIRM -> backToPause()
-            GameOverlay.GAME_OVER -> Unit
+            GameOverlay.GAME_OVER, GameOverlay.MATCH_ENDED -> Unit
         }
     }
 
@@ -510,10 +656,12 @@ class GameViewModel(
         if (overlay != GameOverlay.NONE) hideControls()
         syncClock()
         syncComputerTurn()
+        pumpMatchItems()
         refreshNeedsFrames()
     }
 
     override fun onCleared() {
+        match?.detachTurnSink(matchSink)
         scheduler?.cancel()
         scope.cancel()
         super.onCleared()
@@ -534,6 +682,7 @@ class GameViewModelFactory(
     private val settings: SettingsStore,
     private val sound: SoundManager,
     private val savedGames: SavedGameStore,
+    private val match: MatchController? = null,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -541,6 +690,6 @@ class GameViewModelFactory(
         // The difficulty comes from the config, so a game restored by Continue keeps its level.
         val computer: ComputerPlayer? =
             if (config.mode == GameMode.VS_COMPUTER) ComputerPlayers.forDifficulty(config.difficulty) else null
-        return GameViewModel(config, startMode, settings, sound, savedGames, computer) as T
+        return GameViewModel(config, startMode, settings, sound, savedGames, computer, match) as T
     }
 }

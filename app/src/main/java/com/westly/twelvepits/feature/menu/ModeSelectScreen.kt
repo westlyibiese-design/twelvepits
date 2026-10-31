@@ -15,9 +15,7 @@ import com.westly.twelvepits.core.theme.ChevronRightIcon
 import com.westly.twelvepits.core.theme.ChipIcon
 import com.westly.twelvepits.core.theme.Gold
 import com.westly.twelvepits.core.theme.GlobeIcon
-import com.westly.twelvepits.core.theme.LockIcon
 import com.westly.twelvepits.core.theme.MenuCard
-import com.westly.twelvepits.core.theme.OffGrey
 import com.westly.twelvepits.core.theme.PeopleIcon
 import com.westly.twelvepits.core.theme.ScreenScaffold
 
@@ -26,6 +24,7 @@ fun ModeSelectScreen(
     onBack: () -> Unit,
     onPlayComputer: () -> Unit,
     onTwoPlayers: () -> Unit,
+    onTwoPhones: () -> Unit,
 ) {
     ScreenScaffold(title = stringResource(R.string.mode_title), onBack = onBack) {
         Column(
@@ -49,13 +48,12 @@ fun ModeSelectScreen(
                 leading = { PeopleIcon(tint = Gold) },
                 trailing = { ChevronRightIcon(tint = Gold) },
             )
-            // Phase 9 unlocks this card. Until then it is greyed out and does nothing.
             MenuCard(
                 title = stringResource(R.string.mode_two_phones_title),
                 subtitle = stringResource(R.string.mode_two_phones_subtitle),
-                enabled = false,
-                leading = { GlobeIcon(tint = OffGrey) },
-                trailing = { LockIcon(tint = OffGrey) },
+                onClick = onTwoPhones,
+                leading = { GlobeIcon(tint = Gold) },
+                trailing = { ChevronRightIcon(tint = Gold) },
             )
         }
     }

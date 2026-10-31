@@ -97,6 +97,9 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    // Two phones: finds the other phone and sends the moves over Bluetooth and Wi-Fi, with no internet.
+    implementation(libs.play.services.nearby)
+    implementation(libs.play.services.base)
 
     testImplementation(libs.junit)
 }

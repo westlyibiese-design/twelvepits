@@ -67,6 +67,14 @@ class SavedGameStore(
         enqueue { edit { it.afterGameFinished(config, finalState) } }
     }
 
+    /**
+     * A two-phone game has finished. In ONE edit the win is counted for this phone and, on the host,
+     * the starter record moves on. A saved game of another mode is not touched.
+     */
+    fun recordFinishedPhonesGame(localWon: Boolean, starterOfFinishedGame: Player?) {
+        enqueue { edit { it.afterTwoPhonesGame(localWon, starterOfFinishedGame) } }
+    }
+
     /** Deletes the saved game and returns when it is gone. */
     suspend fun deleteSavedGame() {
         sequential { edit { it.copy(savedGame = null) } }

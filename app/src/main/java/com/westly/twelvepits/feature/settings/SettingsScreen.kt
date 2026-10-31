@@ -199,6 +199,20 @@ private fun ScoresSection(savedGames: SavedGameStore) {
             ),
         )
         Divider()
+        BasicText(
+            text = stringResource(R.string.mode_name_two_phones),
+            style = TwelvePitsType.label,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+        ScoreRow(
+            label = stringResource(R.string.scores_wins),
+            value = stringResource(
+                R.string.scores_two_phones_row,
+                scores.twoPhones.playerOne,
+                scores.twoPhones.playerTwo,
+            ),
+        )
+        Divider()
         OutlinedGoldButton(
             text = stringResource(R.string.scores_reset),
             onClick = { askReset = true },

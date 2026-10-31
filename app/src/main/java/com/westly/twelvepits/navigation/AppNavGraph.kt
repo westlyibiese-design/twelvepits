@@ -25,6 +25,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.westly.twelvepits.AppContainer
 import com.westly.twelvepits.R
+import com.westly.twelvepits.core.model.GameMode
 import com.westly.twelvepits.core.theme.GameDialog
 import com.westly.twelvepits.feature.game.ui.GameScreen
 import com.westly.twelvepits.feature.game.ui.GameViewModel
@@ -33,10 +34,12 @@ import com.westly.twelvepits.feature.game.ui.OrientationGuard
 import com.westly.twelvepits.feature.howtoplay.HowToPlayScreen
 import com.westly.twelvepits.feature.launch.LaunchScreen
 import com.westly.twelvepits.feature.game.data.StartMode
+import com.westly.twelvepits.feature.game.multiplayer.PhonesScreen
 import com.westly.twelvepits.feature.menu.GameSetupHost
 import com.westly.twelvepits.feature.menu.MainMenuScreen
 import com.westly.twelvepits.feature.menu.ModeSelectScreen
 import com.westly.twelvepits.feature.menu.SetupKind
+import com.westly.twelvepits.feature.result.PhonesResultHost
 import com.westly.twelvepits.feature.result.ResultScreen
 import com.westly.twelvepits.feature.settings.SettingsScreen
 import kotlinx.coroutines.launch
@@ -53,6 +56,8 @@ fun AppNavGraph(
 
     // Back to the main menu from the game screen (Leave, Quit and the game-over dialog).
     val returnToMenu: () -> Unit = {
+        // Two phones: the other phone is told and the connection is closed. Nothing happens in the other modes.
+        container.closePhonesSession()
         navController.popBackStack(Routes.MENU, inclusive = false)
     }
 
@@ -117,6 +122,7 @@ fun AppNavGraph(
                     onBack = { navController.popBackStack() },
                     onPlayComputer = { navController.navigate(Routes.SETUP_COMPUTER) },
                     onTwoPlayers = { navController.navigate(Routes.SETUP_TWO_PLAYERS) },
+                    onTwoPhones = { navController.navigate(Routes.PHONES) },
                 )
             }
             composable(Routes.SETUP_COMPUTER) {
@@ -135,6 +141,19 @@ fun AppNavGraph(
                     savedGames = container.savedGames,
                     onBack = { navController.popBackStack() },
                     onStartGame = { config -> navController.navigate(Routes.game(config)) },
+                )
+            }
+            composable(Routes.PHONES) {
+                val session = remember { container.openPhonesSession() }
+                PhonesScreen(
+                    session = session,
+                    settings = container.settings,
+                    savedGames = container.savedGames,
+                    onBack = {
+                        container.closePhonesSession()
+                        navController.popBackStack()
+                    },
+                    onGameReady = { config -> navController.navigate(Routes.game(config)) },
                 )
             }
             composable(Routes.HOW_TO_PLAY) {
@@ -158,6 +177,30 @@ fun AppNavGraph(
                                 popUpTo(Routes.RESULT) { inclusive = true }
                             }
                         }
+                    }
+                } else if (result.config.mode == GameMode.TWO_PHONES) {
+                    // Two phones: the match decides what the buttons do. Without a match there is nothing to continue.
+                    val match = container.phonesSession?.controller
+                    val toMenu: () -> Unit = {
+                        container.pendingResult = null
+                        returnToMenu()
+                    }
+                    BackHandler(onBack = toMenu)
+                    if (match == null) {
+                        LaunchedEffect(Unit) { toMenu() }
+                    } else {
+                        PhonesResultHost(
+                            result = result,
+                            match = match,
+                            sound = container.sound,
+                            onNewGame = { config ->
+                                container.pendingResult = null
+                                navController.navigate(Routes.game(config)) {
+                                    popUpTo(Routes.RESULT) { inclusive = true }
+                                }
+                            },
+                            onMainMenu = toMenu,
+                        )
                     }
                 } else {
                     val toMenu: () -> Unit = {
@@ -192,8 +235,12 @@ fun AppNavGraph(
                 ),
             ) { entry ->
                 val config = Routes.configFrom(entry.arguments)
+                // Two phones: the match of the open session. Without it the game cannot go on.
+                val phonesMatch = if (config?.mode == GameMode.TWO_PHONES) container.phonesSession?.controller else null
                 if (config == null) {
                     LaunchedEffect(Unit) { navController.popBackStack() }
+                } else if (config.mode == GameMode.TWO_PHONES && phonesMatch == null) {
+                    LaunchedEffect(Unit) { returnToMenu() }
                 } else {
                     // Saved with the screen's state: if the system closed the app and this screen is rebuilt,
                     // it must continue the saved game and never start a new one.
@@ -215,6 +262,7 @@ fun AppNavGraph(
                                 container.settings,
                                 container.sound,
                                 container.savedGames,
+                                phonesMatch,
                             ),
                         )[GameViewModel::class.java]
                     }

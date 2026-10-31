@@ -37,6 +37,8 @@ data class SetupChoices(
     val player1Avatar: AvatarId?,
     val player2Name: String?,
     val player2Avatar: AvatarId?,
+    val phonesName: String? = null,
+    val phonesAvatar: AvatarId? = null,
 )
 
 /**
@@ -75,6 +77,8 @@ class SettingsStore(context: Context) {
             player1Avatar = parseAvatar(prefs[P1_AVATAR]),
             player2Name = prefs[P2_NAME],
             player2Avatar = parseAvatar(prefs[P2_AVATAR]),
+            phonesName = prefs[PHONES_NAME],
+            phonesAvatar = parseAvatar(prefs[PHONES_AVATAR]),
         )
     }
 
@@ -125,6 +129,14 @@ class SettingsStore(context: Context) {
         }
     }
 
+    /** The name and avatar of the one player on the Two phones screen. */
+    suspend fun saveTwoPhonesSetup(name: String, avatar: AvatarId) {
+        update {
+            it[PHONES_NAME] = name
+            it[PHONES_AVATAR] = avatar.name
+        }
+    }
+
     /** Saves even if the screen that asked for it has already closed. */
     private suspend fun update(change: (MutablePreferences) -> Unit) {
         withContext(NonCancellable) {
@@ -157,5 +169,7 @@ class SettingsStore(context: Context) {
         private val P1_AVATAR = stringPreferencesKey("setup_p1_avatar")
         private val P2_NAME = stringPreferencesKey("setup_p2_name")
         private val P2_AVATAR = stringPreferencesKey("setup_p2_avatar")
+        private val PHONES_NAME = stringPreferencesKey("setup_phones_name")
+        private val PHONES_AVATAR = stringPreferencesKey("setup_phones_avatar")
     }
 }

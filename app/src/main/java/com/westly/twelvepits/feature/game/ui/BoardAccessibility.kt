@@ -88,6 +88,8 @@ private fun describePit(resources: Resources, viewModel: GameViewModel, pit: Int
     val config = viewModel.config
     val owner = GameState.ownerOfPit(pit)
     val ownerText = when {
+        config.mode == GameMode.TWO_PHONES && owner == viewModel.localPlayer ->
+            resources.getString(R.string.a11y_owner_you)
         config.mode == GameMode.VS_COMPUTER && owner == Player.ONE -> resources.getString(R.string.a11y_owner_you)
         config.mode == GameMode.VS_COMPUTER -> resources.getString(R.string.a11y_owner_computer)
         owner == Player.ONE -> resources.getString(R.string.a11y_owner_named, config.player1Name)

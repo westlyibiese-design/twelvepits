@@ -64,6 +64,9 @@ import com.westly.twelvepits.core.theme.OutlinedGoldButton
 import com.westly.twelvepits.core.theme.TwelvePitsType
 import com.westly.twelvepits.core.theme.labelRes
 import com.westly.twelvepits.core.theme.rememberAnimationsEnabled
+import com.westly.twelvepits.feature.game.multiplayer.EndReason
+import com.westly.twelvepits.feature.game.multiplayer.endReasonNote
+import com.westly.twelvepits.feature.game.multiplayer.endReasonTitle
 import com.westly.twelvepits.feature.result.GameResult
 import kotlinx.coroutines.flow.collectLatest
 import kotlin.math.roundToInt
@@ -97,7 +100,9 @@ fun GameScreen(
     GameWindowEffect(activity, viewModel)
     GameFrameLoop(viewModel)
     LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.onAppForeground() }
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.onAppBackground() }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        viewModel.onAppBackground(activity?.isChangingConfigurations == true)
+    }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         if (activity != null) hideSystemBars(activity, view)
     }
@@ -107,7 +112,8 @@ fun GameScreen(
     val assetsState by produceState<AssetsState>(AssetsState.Loading, context) {
         value = loadGameAssets(context)
     }
-    val mapper = remember(perspective) { BoardMapper(perspective) }
+    // On two phones the board is drawn from the point of view of this phone's player: always at the bottom.
+    val mapper = remember(perspective, viewModel) { BoardMapper(viewModel.localPlayer ?: perspective) }
 
     // The game is over: go to the result screen. (Back does the same while the screen is still closing.)
     LaunchedEffect(ui.result) {
@@ -118,11 +124,17 @@ fun GameScreen(
     LaunchedEffect(ui.loadFailed) {
         if (ui.loadFailed) onExit()
     }
+    // Two phones: this phone was stopped during the game, which counts as leaving. Back in the app: to the menu.
+    LaunchedEffect(ui.matchEnd) {
+        if (ui.matchEnd == EndReason.LEFT_BY_ME) onExit()
+    }
 
     BackHandler {
         val result = ui.result
         if (ui.overlay == GameOverlay.GAME_OVER) {
             if (result != null) onGameFinished(result)
+        } else if (ui.overlay == GameOverlay.MATCH_ENDED) {
+            onExit()
         } else {
             viewModel.onBackPressed()
         }
@@ -176,7 +188,12 @@ private fun GameBoardLayer(
         val playerNames = listOf(viewModel.config.player1Name, viewModel.config.player2Name)
         val savedData by viewModel.savedData.collectAsState(initial = null)
         val tally = savedData?.scores?.tally(viewModel.config.mode, viewModel.config.difficulty)
-        val playerWins = listOf(tally?.playerOne ?: 0, tally?.playerTwo ?: 0)
+        // The two-phone tally is kept from this phone's side ("You" first): on the guest's phone it is turned round.
+        val playerWins = if (viewModel.localPlayer == Player.TWO) {
+            listOf(tally?.playerTwo ?: 0, tally?.playerOne ?: 0)
+        } else {
+            listOf(tally?.playerOne ?: 0, tally?.playerTwo ?: 0)
+        }
         val winsLabel = stringResource(R.string.board_wins_label)
         val renderer = remember(assets, board, seedImage, mapper, widthPx, heightPx, density, measurer, playerNames, playerWins, winsLabel) {
             BoardRenderer(
@@ -263,9 +280,14 @@ private fun GameOverlayHost(
     ui: GameUiState,
     onExit: () -> Unit,
 ) {
-    // Nothing is saved before the first turn is played.
+    val phones = viewModel.config.mode == GameMode.TWO_PHONES
+    // Nothing is saved before the first turn is played. A two-phone game is never saved.
     val savedMessage = stringResource(
-        if (ui.moveNumber >= 1) R.string.leave_message else R.string.leave_message_unsaved,
+        when {
+            phones -> R.string.phones_leave_message
+            ui.moveNumber >= 1 -> R.string.leave_message
+            else -> R.string.leave_message_unsaved
+        },
     )
     when (ui.overlay) {
         GameOverlay.NONE -> Unit
@@ -275,10 +297,14 @@ private fun GameOverlayHost(
             dismissText = stringResource(R.string.leave_stay),
             confirmText = stringResource(R.string.leave_leave),
             onDismiss = viewModel::stay,
-            onConfirm = onExit,
+            onConfirm = {
+                viewModel.leaveMatch()
+                onExit()
+            },
         )
         GameOverlay.PAUSE -> PauseOverlay(
             moveNumber = ui.moveNumber,
+            phones = phones,
             difficulty = if (viewModel.config.mode == GameMode.VS_COMPUTER) {
                 stringResource(viewModel.config.difficulty.labelRes)
             } else {
@@ -288,7 +314,13 @@ private fun GameOverlayHost(
             onRestart = viewModel::askRestart,
             onSettings = viewModel::openSettings,
             // The game is already saved after every turn, so quitting needs no question once a turn was played.
-            onQuit = { if (ui.moveNumber >= 1) onExit() else viewModel.askQuit() },
+            onQuit = {
+                when {
+                    phones -> viewModel.askLeave()
+                    ui.moveNumber >= 1 -> onExit()
+                    else -> viewModel.askQuit()
+                }
+            },
         )
         GameOverlay.SETTINGS -> SettingsOverlay(
             settings = viewModel.settings,
@@ -311,10 +343,20 @@ private fun GameOverlayHost(
             onDismiss = viewModel::backToPause,
             onConfirm = onExit,
         )
+        GameOverlay.MATCH_ENDED -> MessageOverlay(
+            title = endReasonTitle(ui.matchEnd, opponentName(viewModel)),
+            message = endReasonNote(ui.matchEnd),
+            buttonText = stringResource(R.string.result_main_menu),
+            onClick = onExit,
+        )
         // The result screen takes over; nothing is drawn here and the board cannot be tapped.
         GameOverlay.GAME_OVER -> Unit
     }
 }
+
+/** The name of the other player on two phones. */
+private fun opponentName(viewModel: GameViewModel): String =
+    if (viewModel.localPlayer == Player.ONE) viewModel.config.player2Name else viewModel.config.player1Name
 
 private fun playerName(viewModel: GameViewModel, player: Player): String =
     if (player == Player.ONE) viewModel.config.player1Name else viewModel.config.player2Name

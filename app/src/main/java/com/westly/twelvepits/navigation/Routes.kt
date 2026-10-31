@@ -15,6 +15,9 @@ object Routes {
     const val MODE_SELECT = "mode_select"
     const val SETUP_COMPUTER = "setup_computer"
     const val SETUP_TWO_PLAYERS = "setup_two_players"
+
+    /** The Two phones screen (portrait): host or join, then the game starts. */
+    const val PHONES = "phones"
     const val HOW_TO_PLAY = "how_to_play"
     const val SETTINGS = "settings"
 

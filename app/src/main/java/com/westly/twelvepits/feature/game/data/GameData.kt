@@ -84,6 +84,24 @@ data class GameData(
         starters = starters.afterGameFinished(config.mode, finalState.startingPlayer),
     )
 
+    /**
+     * A two-phone game has just finished. The win is counted from this phone's point of view (Player ONE
+     * of the tally is "You"). The saved game of the other modes is not touched. Only the host passes
+     * [starterOfFinishedGame]: it moves the starter record on. The guest passes null and its record stays.
+     */
+    fun afterTwoPhonesGame(localWon: Boolean, starterOfFinishedGame: Player?): GameData = copy(
+        scores = scores.withWin(
+            GameMode.TWO_PHONES,
+            Difficulty.NORMAL,
+            if (localWon) Player.ONE else Player.TWO,
+        ),
+        starters = if (starterOfFinishedGame == null) {
+            starters
+        } else {
+            starters.afterGameFinished(GameMode.TWO_PHONES, starterOfFinishedGame)
+        },
+    )
+
     /** Scores and the starter record start again. The saved game, the settings, names and avatars stay. */
     fun afterScoresReset(): GameData = copy(scores = Scores(), starters = starters.reset())
 }

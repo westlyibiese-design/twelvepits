@@ -190,7 +190,7 @@ private fun ColumnScope.FormLayout(
 }
 
 @Composable
-private fun FieldLabel(text: String) {
+internal fun FieldLabel(text: String) {
     BasicText(
         text = text,
         style = TwelvePitsType.label,
@@ -200,7 +200,7 @@ private fun FieldLabel(text: String) {
 
 /** Row of the three selectable avatars. The one [taken] by the other player is dimmed and cannot be chosen. */
 @Composable
-private fun AvatarPicker(
+internal fun AvatarPicker(
     current: AvatarId,
     taken: AvatarId?,
     onSelect: (AvatarId) -> Unit,

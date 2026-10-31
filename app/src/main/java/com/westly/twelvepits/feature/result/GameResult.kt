@@ -10,10 +10,10 @@ import java.util.Locale
 
 /** Which title the result screen shows. A draw is impossible (RULES.md section 7), so there is no draw title. */
 enum class ResultHeadline {
-    /** The human beat the computer. */
+    /** The human beat the computer, or the player of this phone won a two-phone game. */
     VICTORY,
 
-    /** The computer won. */
+    /** The computer won, or the other player won a two-phone game. */
     DEFEAT,
 
     /** Two players on one phone: "<name> wins". */
@@ -30,6 +30,10 @@ data class GameResult(
     /** The winner's biggest number of seeds captured in one single turn. */
     val bestCapture: Int,
     val elapsedMs: Long,
+    /** On two phones: which player this phone is. The title is then Victory or Defeat from this phone's side. */
+    val localPlayer: Player? = null,
+    /** On two phones: the number of the game in the match, so the result screen can tell a rematch from this game. */
+    val matchGameNumber: Int = 0,
 ) {
     val winnerScore: Int
         get() = if (winner == Player.ONE) scoreOne else scoreTwo
@@ -42,6 +46,8 @@ data class GameResult(
 
     val headline: ResultHeadline
         get() = when {
+            config.mode == GameMode.TWO_PHONES && localPlayer != null ->
+                if (winner == localPlayer) ResultHeadline.VICTORY else ResultHeadline.DEFEAT
             config.mode != GameMode.VS_COMPUTER -> ResultHeadline.WINNER_NAMED
             winner == Player.ONE -> ResultHeadline.VICTORY
             else -> ResultHeadline.DEFEAT
@@ -49,7 +55,14 @@ data class GameResult(
 
     companion object {
         /** The result of a finished game. [finalState] must be finished; seeds left on the board are not counted. */
-        fun from(config: GameConfig, finalState: GameState, stats: TurnStats, elapsedMs: Long): GameResult {
+        fun from(
+            config: GameConfig,
+            finalState: GameState,
+            stats: TurnStats,
+            elapsedMs: Long,
+            localPlayer: Player? = null,
+            matchGameNumber: Int = 0,
+        ): GameResult {
             val winner = finishedWinner(finalState)
             return GameResult(
                 config = config,
@@ -59,6 +72,8 @@ data class GameResult(
                 moves = finalState.moveNumber,
                 bestCapture = stats.bestCaptureOf(winner),
                 elapsedMs = elapsedMs,
+                localPlayer = localPlayer,
+                matchGameNumber = matchGameNumber,
             )
         }
     }
