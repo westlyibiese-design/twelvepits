@@ -66,6 +66,9 @@ class BoardDisplayState {
     var pitGlowPlayer: Player? = null
     var storeGlowPlayer: Player? = null
 
+    /** The one pit (engine pit 0 to 11) that carries the bright recommendation glow, or -1 for none. */
+    var cheatPit = -1
+
     /** Puts the board in exactly the position of an engine state and clears every moving part. */
     fun reset(state: GameState) {
         for (pit in 0 until GameState.PIT_COUNT) {
@@ -75,6 +78,7 @@ class BoardDisplayState {
         stores[Player.TWO.ordinal] = state.storeTwo
         clearSequence()
         clearEffects()
+        cheatPit = -1
     }
 
     /** True when the counts are exactly those of the engine state. */

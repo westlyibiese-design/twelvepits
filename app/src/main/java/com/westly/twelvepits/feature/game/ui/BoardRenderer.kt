@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.TextLayoutResult
@@ -39,6 +40,7 @@ import com.westly.twelvepits.core.theme.StoreNameText
 import com.westly.twelvepits.core.theme.SeedShadow
 import com.westly.twelvepits.core.theme.TurnGlow
 import com.westly.twelvepits.feature.game.engine.GameState
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -138,6 +140,14 @@ internal class BoardRenderer(
     private val glowStrokeWide = Stroke(width = GameDimens.GlowStrokeWide.value * dp)
     private val glowStrokeNarrow = Stroke(width = GameDimens.GlowStrokeNarrow.value * dp)
     private val shakeAmplitude: Float = SHAKE_W * boardW
+
+    // The bright recommendation glow (hidden tap code). Made once, so drawing it allocates nothing.
+    private val cheatHaloStroke = Stroke(width = CHEAT_HALO_STROKE_DP * dp)
+    private val cheatRingStroke = Stroke(width = CHEAT_RING_STROKE_DP * dp)
+    private val cheatCoreStroke = Stroke(width = CHEAT_CORE_STROKE_DP * dp)
+    private val cheatRayStroke = Stroke(width = CHEAT_RAY_STROKE_DP * dp, cap = StrokeCap.Round)
+    private val rayCos = FloatArray(CHEAT_RAYS) { cos(it * TWO_PI / CHEAT_RAYS) }
+    private val raySin = FloatArray(CHEAT_RAYS) { sin(it * TWO_PI / CHEAT_RAYS) }
 
     // Where the images are drawn.
     private val backgroundOffset: IntOffset
@@ -349,6 +359,38 @@ internal class BoardRenderer(
         if (storePlayer != null) {
             drawTurnRing(storeX[storePlayer.ordinal], storeY[storePlayer.ordinal], storeRingRadius, pulse)
         }
+        // Only ever one pit, and never an empty one.
+        val cheatPit = display.cheatPit
+        if (cheatPit in 0 until GameState.PIT_COUNT && display.pits[cheatPit] > 0) {
+            drawCheatGlow(pitX[cheatPit], pitY[cheatPit], pitRingRadius, pulse)
+        }
+    }
+
+    /**
+     * The vivid emerald glow of the recommended pit: a luminous ring, a pale inner line, a soft halo and
+     * short rays. Everything is drawn on or outside the pit's ring, so the seeds and the numbers stay clear.
+     */
+    private fun DrawScope.drawCheatGlow(cx: Float, cy: Float, radius: Float, pulse: Float) {
+        val center = Offset(cx, cy)
+        val strength = 0.85f + 0.15f * pulse
+        for (layer in 0 until CHEAT_HALO_LAYERS) {
+            val grow = (layer + 1) * CHEAT_HALO_STEP_DP * dp
+            val fade = 1f - layer.toFloat() / CHEAT_HALO_LAYERS
+            drawCircle(CheatGlowColor.copy(alpha = 0.26f * fade * strength), radius + grow, center, style = cheatHaloStroke)
+        }
+        val rayStart = radius + 3f * dp
+        val rayEnd = radius * 1.45f
+        for (i in 0 until CHEAT_RAYS) {
+            drawLine(
+                color = CheatGlowColor.copy(alpha = 0.55f * strength),
+                start = Offset(cx + rayCos[i] * rayStart, cy + raySin[i] * rayStart),
+                end = Offset(cx + rayCos[i] * rayEnd, cy + raySin[i] * rayEnd),
+                strokeWidth = cheatRayStroke.width,
+                cap = StrokeCap.Round,
+            )
+        }
+        drawCircle(CheatGlowColor.copy(alpha = strength), radius, center, style = cheatRingStroke)
+        drawCircle(CheatCoreColor.copy(alpha = 0.9f * strength), radius, center, style = cheatCoreStroke)
     }
 
     /** A soft glow made of a few stacked circles (no gradient is created while drawing). */
@@ -542,6 +584,15 @@ internal class BoardRenderer(
 
     private companion object {
         const val TWO_PI = 6.2831855f
+        const val CHEAT_HALO_LAYERS = 6
+        const val CHEAT_HALO_STEP_DP = 3.5f
+        const val CHEAT_HALO_STROKE_DP = 7f
+        const val CHEAT_RING_STROKE_DP = 4f
+        const val CHEAT_CORE_STROKE_DP = 1.5f
+        const val CHEAT_RAY_STROKE_DP = 2f
+        const val CHEAT_RAYS = 20
+        private val CheatGlowColor = Color(0xFF2CFF5A)
+        private val CheatCoreColor = Color(0xFFE6FFEE)
         const val MAX_CACHED_NUMBER = 64
 
         // The badge number is about 0.536 of the badge diameter (0.0145 / 0.027 of the board width for pits).

@@ -75,6 +75,20 @@ object PitHitTester {
         }
         return best
     }
+
+    /**
+     * The store bowl hit by a tap at ([x], [y]), or null. A store is not a pit: this never starts a move.
+     * It only lets the hidden tap code see taps on the two large bowls.
+     */
+    fun hitStore(x: Float, y: Float, board: BoardRect, geometry: BoardGeometry): StoreSide? {
+        val radius = geometry.storeOuterRadiusW * board.width
+        for (side in StoreSide.entries) {
+            val dx = x - board.x(geometry.storeCx(side))
+            val dy = y - board.y(geometry.storeCy(side))
+            if (dx * dx + dy * dy <= radius * radius) return side
+        }
+        return null
+    }
 }
 
 /**

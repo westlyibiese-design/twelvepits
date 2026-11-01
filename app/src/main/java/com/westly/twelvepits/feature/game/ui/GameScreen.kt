@@ -232,6 +232,9 @@ private fun GameBoardLayer(
                 .pointerInput(board, geometry, mapper, viewModel) {
                     detectTapGestures { offset ->
                         val slot = PitHitTester.hitSlot(offset.x, offset.y, board, geometry, minTapRadius)
+                        val store = if (slot < 0) PitHitTester.hitStore(offset.x, offset.y, board, geometry) else null
+                        // The hidden tap code only listens. What the tap does in the game is decided below, as before.
+                        viewModel.onSecretTap(SecretTargets.of(slot, store))
                         if (slot >= 0) {
                             viewModel.onPitTapped(mapper.pitOfSlot(slot))
                         } else {

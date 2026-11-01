@@ -41,6 +41,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -162,6 +163,10 @@ class GameViewModel(
     private val pendingTurns = ArrayDeque<MatchItem>()
     private val matchSink: (MatchItem) -> Unit = { item -> onMatchItem(item) }
 
+    // Hidden tap code: listens to taps only; it never decides what a tap does. No timer runs for it.
+    private val secretSequence = SecretSequence(now = { SystemClock.elapsedRealtime() })
+    private var cheatJob: Job? = null
+
     /** Which player this phone is on two phones. Null in the other modes. */
     val localPlayer: Player?
         get() = match?.role
@@ -210,6 +215,7 @@ class GameViewModel(
     }
 
     private fun applyStart(start: GameStart) {
+        resetSecret()
         engineState = start.state
         stats = start.stats
         clock.reset(start.elapsedMs)
@@ -249,6 +255,7 @@ class GameViewModel(
      */
     fun onAppBackground(isConfigurationChange: Boolean = false) {
         inForeground = false
+        resetSecret()
         val running = animator
         if (running != null) {
             running.finishInstantly()
@@ -334,6 +341,7 @@ class GameViewModel(
             invalidTap(pit)
             return
         }
+        resetSecret()
         engineState = result.newState
         stats = stats.afterTurn(state.currentPlayer, result.capturedForMover)
         display.pitGlowPlayer = null
@@ -524,6 +532,7 @@ class GameViewModel(
 
     private fun beginMatchTurn(item: MatchItem.Turn) {
         val result = item.result
+        resetSecret()
         engineState = result.newState
         stats = stats.afterTurn(item.mover, result.capturedForMover)
         display.pitGlowPlayer = null
@@ -535,6 +544,7 @@ class GameViewModel(
 
     /** The host sent the whole position: the board is set to it with no animation. */
     private fun replaceBoard(state: GameState) {
+        resetSecret()
         engineState = state
         display.reset(state)
         updateTurnGlow()
@@ -566,6 +576,64 @@ class GameViewModel(
     /** The player chose to leave: the other phone is told once. */
     fun leaveMatch() {
         match?.leave()
+    }
+
+    // ---- Hidden tap code ----
+
+    /**
+     * A tap at a drawn place of the board ([target] is null for any other place). Called for every tap
+     * on the board, before the normal tap handling, and it changes nothing in the game by itself. Only
+     * while the board is playable and still does the code count; otherwise whatever was entered is dropped.
+     */
+    fun onSecretTap(target: SecretTarget?) {
+        val ui = _uiState.value
+        val listening = ui.ready && ui.overlay == GameOverlay.NONE && ui.result == null &&
+            engineState.status == GameStatus.IN_PROGRESS && animator == null && pendingTurns.isEmpty()
+        if (!listening) {
+            secretSequence.reset()
+            return
+        }
+        if (secretSequence.onTap(target)) showBestMove()
+    }
+
+    /**
+     * The code was entered: work out the strongest legal move for the player who may tap now and light
+     * up that one pit. Nothing is played. If it is not a person's turn, or nothing can be played, nothing happens.
+     */
+    private fun showBestMove() {
+        val state = engineState
+        if (state.status != GameStatus.IN_PROGRESS || !humanControls(state)) return
+        if (match != null && !match.canLocalMove) return
+        cheatJob?.cancel()
+        cheatJob = scope.launch {
+            val pit = try {
+                withContext(Dispatchers.Default) { CheatHint.recommend(state) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "The best move could not be worked out.", e)
+                null
+            }
+            // The answer counts only for the very position it was worked out for.
+            val stillValid = pit != null && engineState == state && animator == null &&
+                _uiState.value.overlay == GameOverlay.NONE && pit in state.legalMoves() &&
+                display.pits[pit] > 0
+            if (stillValid && pit != null) {
+                display.cheatPit = pit
+                frameTick.longValue += 1
+            }
+        }
+    }
+
+    /** Forgets the taps entered so far and removes the recommendation glow. */
+    private fun resetSecret() {
+        secretSequence.reset()
+        cheatJob?.cancel()
+        cheatJob = null
+        if (display.cheatPit != -1) {
+            display.cheatPit = -1
+            frameTick.longValue += 1
+        }
     }
 
     // ---- Controls ----
@@ -640,6 +708,7 @@ class GameViewModel(
     fun confirmRestart() {
         animator = null
         scheduler?.cancel()
+        resetSecret()
         engineState = GameState.initial(engineState.startingPlayer)
         stats = TurnStats()
         clock.reset()
@@ -652,6 +721,7 @@ class GameViewModel(
     }
 
     private fun setOverlay(overlay: GameOverlay) {
+        resetSecret()
         _uiState.update { it.copy(overlay = overlay) }
         if (overlay != GameOverlay.NONE) hideControls()
         syncClock()
