@@ -66,27 +66,68 @@ data class Scores(
 }
 
 /**
- * The saved game, the scores and the starter record. They are stored together in one file so that a
- * finished game changes all three in one single step.
+ * Which saved game a configuration belongs to. Every computer level and Two players keep their own saved
+ * game, so a game of Hard never replaces a game of Easy. Two phones is never saved.
+ */
+enum class SaveSlot {
+    EASY,
+    NORMAL,
+    HARD,
+    TWO_PLAYERS,
+    ;
+
+    companion object {
+        /** The slot of a game, or null when that kind of game is never saved (two phones). */
+        fun forConfig(config: GameConfig): SaveSlot? = when (config.mode) {
+            GameMode.VS_COMPUTER -> when (config.difficulty) {
+                Difficulty.EASY -> EASY
+                Difficulty.NORMAL -> NORMAL
+                Difficulty.HARD -> HARD
+            }
+            GameMode.TWO_PLAYERS_ONE_PHONE -> TWO_PLAYERS
+            GameMode.TWO_PHONES -> null
+        }
+    }
+}
+
+/**
+ * The saved games (one per [SaveSlot]), the scores and the starter record. They are stored together in
+ * one file so that a finished game changes all three in one single step.
  */
 data class GameData(
-    val savedGame: SavedGame? = null,
+    val savedGames: Map<SaveSlot, SavedGame> = emptyMap(),
     val scores: Scores = Scores(),
     val starters: StarterPolicy = StarterPolicy(),
 ) {
+    /** The unfinished game of the same kind as [config], or null. */
+    fun savedGameFor(config: GameConfig): SavedGame? =
+        SaveSlot.forConfig(config)?.let { savedGames[it] }
+
+    /** The same data with [save] stored in its own slot. Other slots stay as they are. */
+    fun withSavedGame(save: SavedGame): GameData {
+        val slot = SaveSlot.forConfig(save.config) ?: return this
+        return copy(savedGames = savedGames + (slot to save))
+    }
+
+    /** The same data without the saved game of the kind of [config]. Other slots stay as they are. */
+    fun withoutSavedGame(config: GameConfig): GameData {
+        val slot = SaveSlot.forConfig(config) ?: return this
+        return copy(savedGames = savedGames - slot)
+    }
+
     /**
      * A game has just finished: count the win, move the starter record on (the next game of this mode
-     * starts with the other player) and delete the saved game. Nothing else changes.
+     * starts with the other player) and delete the saved game of this kind. Nothing else changes.
      */
-    fun afterGameFinished(config: GameConfig, finalState: GameState): GameData = copy(
-        savedGame = null,
-        scores = scores.withWin(config.mode, config.difficulty, finishedWinner(finalState)),
-        starters = starters.afterGameFinished(config.mode, finalState.startingPlayer),
-    )
+    fun afterGameFinished(config: GameConfig, finalState: GameState): GameData =
+        withoutSavedGame(config).copy(
+            scores = scores.withWin(config.mode, config.difficulty, finishedWinner(finalState)),
+            starters = starters.afterGameFinished(config.mode, finalState.startingPlayer),
+        )
 
     /**
      * A two-phone game has just finished. The win is counted from this phone's point of view (Player ONE
-     * of the tally is "You"). The saved game of the other modes is not touched. Only the host passes
+     * of the tally is "You"). The saved games of the other modes are not touched. Only the host passes
      * [starterOfFinishedGame]: it moves the starter record on. The guest passes null and its record stays.
      */
     fun afterTwoPhonesGame(localWon: Boolean, starterOfFinishedGame: Player?): GameData = copy(
@@ -102,7 +143,7 @@ data class GameData(
         },
     )
 
-    /** Scores and the starter record start again. The saved game, the settings, names and avatars stay. */
+    /** Scores and the starter record start again. The saved games, the settings, names and avatars stay. */
     fun afterScoresReset(): GameData = copy(scores = Scores(), starters = starters.reset())
 }
 
@@ -115,10 +156,14 @@ enum class StartMode {
     /** A new game. The starting player comes from the starter record. */
     NEW,
 
-    /** The Continue button: the saved game, or nothing if it cannot be loaded. */
+    /** The saved game of this kind, or nothing if it cannot be loaded. The menu no longer has a Continue button. */
     CONTINUE,
 
-    /** The game screen was rebuilt after the app was closed by the system: the saved game if there is one, else a new game. */
+    /**
+     * The saved game of this kind if there is one, else a new game. Used when a game is started from the
+     * setup screen (a game in progress always comes back) and when the game screen was rebuilt after the
+     * app was closed by the system.
+     */
     RESTORE,
     ;
 

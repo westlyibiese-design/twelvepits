@@ -87,8 +87,11 @@ private fun ColumnScope.ComputerSetupForm(
     onStart: (GameConfig) -> Unit,
 ) {
     val defaultName = stringResource(R.string.default_name_you)
-    val computerName = stringResource(R.string.computer_name)
+    val defaultComputerName = stringResource(R.string.computer_name)
     var name by rememberSaveable { mutableStateOf(limitTypedName(choices.computerPlayerName ?: defaultName)) }
+    var computerName by rememberSaveable {
+        mutableStateOf(limitTypedName(choices.computerName ?: defaultComputerName))
+    }
     var avatar by rememberSaveable { mutableStateOf(selectableOrDefault(choices.computerPlayerAvatar, AvatarId.KING)) }
     var difficulty by rememberSaveable { mutableStateOf(choices.difficulty) }
     var starting by remember { mutableStateOf(false) }
@@ -99,9 +102,10 @@ private fun ColumnScope.ComputerSetupForm(
         onStart = {
             starting = true
             val chosenName = finalName(name, defaultName)
-            val config = computerGameConfig(chosenName, avatar, difficulty, computerName)
+            val chosenComputerName = finalName(computerName, defaultComputerName)
+            val config = computerGameConfig(chosenName, avatar, difficulty, chosenComputerName)
             scope.launch {
-                settings.saveComputerSetup(chosenName, avatar, difficulty)
+                settings.saveComputerSetup(chosenName, avatar, difficulty, chosenComputerName)
                 onStart(config)
                 starting = false
             }
@@ -122,6 +126,8 @@ private fun ColumnScope.ComputerSetupForm(
             selectedIndex = Difficulty.entries.indexOf(difficulty),
             onSelected = { difficulty = Difficulty.entries[it] },
         )
+        FieldLabel(stringResource(R.string.setup_computer_name))
+        GoldTextField(value = computerName, onValueChange = { computerName = limitTypedName(it) })
     }
 }
 

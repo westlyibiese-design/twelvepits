@@ -40,6 +40,7 @@
     <string name="setup_player2_name">Player 2 name</string>
     <string name="setup_avatar">Avatar</string>
     <string name="setup_difficulty">Difficulty</string>
+    <string name="setup_computer_name">Computer name</string>
     <string name="setup_start">START GAME</string>
     <string name="default_name_you">You</string>
     <string name="default_name_player1">Player 1</string>
@@ -83,6 +84,11 @@
     <string name="scores_reset">Reset scores</string>
     <string name="scores_reset_message">Reset all scores? This also restarts who plays first.</string>
     <string name="scores_reset_confirm">Reset</string>
+    <string name="settings_saved_games">Games in progress</string>
+    <string name="saved_games_note">Every level against the computer, and Two players, keeps its own game and picks up where you stopped. Your scores are never reset by this.</string>
+    <string name="saved_games_clear">Start all games afresh</string>
+    <string name="saved_games_clear_message">Delete every game in progress (Easy, Normal, Hard and Two players)? Your scores stay.</string>
+    <string name="saved_games_clear_confirm">Delete</string>
     <string name="settings_footer_title">Twelve Pits (Ayo)</string>
     <string name="settings_footer_version">Version %1$s · © Neribo Group</string>
 
@@ -180,6 +186,7 @@
     <string name="phones_error_refused">The other player did not accept the connection.</string>
     <string name="phones_error_timeout">The connection took too long. Move the phones closer and try again.</string>
     <string name="phones_error_generic">Something went wrong. Try again.</string>
+    <string name="phones_error_code">Error code %1$d</string>
     <string name="phones_unavailable_title">Not available on this phone</string>
     <string name="phones_unavailable_message">Two phones needs Google Play services. Install or update it, make sure it is switched on, and try again.</string>
     <string name="phones_permission_title">Allow nearby phones</string>

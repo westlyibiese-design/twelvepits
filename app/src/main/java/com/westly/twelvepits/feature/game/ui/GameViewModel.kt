@@ -633,8 +633,8 @@ class GameViewModel(
     }
 
     /**
-     * Starts the game again with the SAME starting player and the same players. The saved game is
-     * deleted and the statistics and the time start again. A restart is not a finished game, so it is
+     * Starts the game again with the SAME starting player and the same players. The saved game of this
+     * kind is deleted and the statistics and the time start again. A restart is not a finished game, so it is
      * not counted and does not change the starter record.
      */
     fun confirmRestart() {
@@ -643,7 +643,7 @@ class GameViewModel(
         engineState = GameState.initial(engineState.startingPlayer)
         stats = TurnStats()
         clock.reset()
-        scope.launch { savedGames.deleteSavedGame() }
+        scope.launch { savedGames.deleteSavedGame(config) }
         display.reset(engineState)
         updateTurnGlow()
         _uiState.update { it.copy(bannerPlayer = null, moveNumber = 0, result = null) }

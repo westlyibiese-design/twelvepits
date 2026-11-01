@@ -39,6 +39,8 @@ data class SetupChoices(
     val player2Avatar: AvatarId?,
     val phonesName: String? = null,
     val phonesAvatar: AvatarId? = null,
+    /** The name the player gave the computer opponent. Null means the default name. */
+    val computerName: String? = null,
 )
 
 /**
@@ -79,6 +81,7 @@ class SettingsStore(context: Context) {
             player2Avatar = parseAvatar(prefs[P2_AVATAR]),
             phonesName = prefs[PHONES_NAME],
             phonesAvatar = parseAvatar(prefs[PHONES_AVATAR]),
+            computerName = prefs[COMPUTER_NAME],
         )
     }
 
@@ -107,11 +110,17 @@ class SettingsStore(context: Context) {
         update { it[SEED_HOP_SECONDS] = speed.hopSeconds }
     }
 
-    suspend fun saveComputerSetup(name: String, avatar: AvatarId, difficulty: Difficulty) {
+    suspend fun saveComputerSetup(
+        name: String,
+        avatar: AvatarId,
+        difficulty: Difficulty,
+        computerName: String,
+    ) {
         update {
             it[VS_NAME] = name
             it[VS_AVATAR] = avatar.name
             it[DIFFICULTY] = difficulty.name
+            it[COMPUTER_NAME] = computerName
         }
     }
 
@@ -164,6 +173,7 @@ class SettingsStore(context: Context) {
         private val SEED_HOP_SECONDS = floatPreferencesKey("seed_hop_seconds")
         private val VS_NAME = stringPreferencesKey("setup_vs_name")
         private val VS_AVATAR = stringPreferencesKey("setup_vs_avatar")
+        private val COMPUTER_NAME = stringPreferencesKey("setup_computer_name")
         private val DIFFICULTY = stringPreferencesKey("setup_difficulty")
         private val P1_NAME = stringPreferencesKey("setup_p1_name")
         private val P1_AVATAR = stringPreferencesKey("setup_p1_avatar")

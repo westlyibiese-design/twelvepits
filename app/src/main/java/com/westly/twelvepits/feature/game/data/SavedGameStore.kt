@@ -18,7 +18,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * The saved game, the scores and the starter record (RULES.md sections 2 and 10).
+ * The saved games, the scores and the starter record (RULES.md sections 2 and 10). There is one saved
+ * game for each computer level and one for Two players ([SaveSlot]).
  *
  * Every write goes through one queue and is done in the order it was asked for, by [scope] (the
  * application scope) and under [NonCancellable], so a write is never lost or overtaken because a
@@ -49,19 +50,22 @@ class SavedGameStore(
     /** Everything that is saved. A saved game that cannot be read shows up as null. */
     val data: Flow<GameData> = storage.raw.map { decode(it) }.distinctUntilChanged()
 
-    /** The unfinished game, or null. The menu shows Continue only while this is not null. */
-    val savedGame: Flow<SavedGame?> = data.map { it.savedGame }.distinctUntilChanged()
+    /** The unfinished games, by slot. A slot without a game is missing. */
+    val savedGames: Flow<Map<SaveSlot, SavedGame>> = data.map { it.savedGames }.distinctUntilChanged()
 
     val scores: Flow<Scores> = data.map { it.scores }.distinctUntilChanged()
 
-    /** Saves the position after a finished turn. Returns at once; the write is queued. */
+    /**
+     * Saves the position after a finished turn, in the slot of its own game. The other slots are not
+     * touched. Returns at once; the write is queued.
+     */
     fun saveGame(save: SavedGame) {
-        enqueue { edit { it.copy(savedGame = save) } }
+        enqueue { edit { it.withSavedGame(save) } }
     }
 
     /**
      * A game has finished. In ONE edit: the win is counted, the starter record moves on and the
-     * saved game is deleted. Returns at once; the write is queued.
+     * saved game of that kind is deleted. Returns at once; the write is queued.
      */
     fun recordFinishedGame(config: GameConfig, finalState: GameState) {
         enqueue { edit { it.afterGameFinished(config, finalState) } }
@@ -75,23 +79,28 @@ class SavedGameStore(
         enqueue { edit { it.afterTwoPhonesGame(localWon, starterOfFinishedGame) } }
     }
 
-    /** Deletes the saved game and returns when it is gone. */
-    suspend fun deleteSavedGame() {
-        sequential { edit { it.copy(savedGame = null) } }
+    /** Deletes the saved game of the same kind as [config] and returns when it is gone. */
+    suspend fun deleteSavedGame(config: GameConfig) {
+        sequential { edit { it.withoutSavedGame(config) } }
     }
 
-    /** True when a valid saved game exists. */
-    suspend fun hasSavedGame(): Boolean = sequential { readData().savedGame != null }
+    /** Deletes every saved game (the player asked for it in Settings). Scores and settings stay. */
+    suspend fun clearSavedGames() {
+        sequential { edit { it.copy(savedGames = emptyMap()) } }
+    }
 
-    /** The saved game, or null. A damaged saved game is deleted. */
-    suspend fun loadSavedGame(): SavedGame? = sequential { readData().savedGame }
+    /** True when a valid saved game of the same kind as [config] exists. */
+    suspend fun hasSavedGame(config: GameConfig): Boolean = sequential { readData().savedGameFor(config) != null }
+
+    /** The saved game of the same kind as [config], or null. A damaged saved game is deleted. */
+    suspend fun loadSavedGame(config: GameConfig): SavedGame? = sequential { readData().savedGameFor(config) }
 
     /** Deletes a damaged saved game, if there is one. Called when the app starts. */
     fun discardDamagedSave() {
         enqueue { readData() }
     }
 
-    /** Clears the scores and the starter record, after the player confirmed. Saved game and settings stay. */
+    /** Clears the scores and the starter record, after the player confirmed. Saved games and settings stay. */
     suspend fun resetScores() {
         sequential { edit { it.afterScoresReset() } }
     }
@@ -99,7 +108,7 @@ class SavedGameStore(
     /** The position a game screen starts from, or null when [mode] is CONTINUE and the saved game cannot be loaded. */
     suspend fun prepareStart(config: GameConfig, mode: StartMode): GameStart? = sequential {
         val data = readData()
-        val saved = data.savedGame
+        val saved = data.savedGameFor(config)
         when (mode) {
             StartMode.NEW -> newGame(config.mode, data)
             StartMode.CONTINUE -> saved?.toStart()
@@ -115,12 +124,19 @@ class SavedGameStore(
 
     private fun SavedGame.toStart(): GameStart = GameStart(state, stats, elapsedMs)
 
-    /** Reads everything. A saved game that cannot be read is deleted on the spot. */
+    /**
+     * Reads everything. A saved game that cannot be read is deleted on the spot, and a save written by
+     * an older version is rewritten in the current format. The other slots are never lost.
+     */
     private suspend fun readData(): GameData {
         val raw = storage.raw.first()
         val data = decode(raw)
-        if (raw.savedGame != null && data.savedGame == null) {
-            storage.edit { it.copy(savedGame = null) }
+        val rawSaves = raw.savedGame
+        if (rawSaves != null) {
+            val clean = SavedGamesCodec.encode(data.savedGames)
+            if (clean != rawSaves) {
+                storage.edit { it.copy(savedGame = clean) }
+            }
         }
         return data
     }
@@ -147,13 +163,13 @@ class SavedGameStore(
     }
 
     private fun decode(raw: RawGameData): GameData = GameData(
-        savedGame = raw.savedGame?.let { SavedGameCodec.decode(it) },
+        savedGames = raw.savedGame?.let { SavedGamesCodec.decode(it) } ?: emptyMap(),
         scores = raw.scores?.let { ScoresCodec.decode(it) } ?: Scores(),
         starters = raw.starters?.let { StarterCodec.decode(it) } ?: StarterPolicy(),
     )
 
     private fun encode(data: GameData): RawGameData = RawGameData(
-        savedGame = data.savedGame?.let { SavedGameCodec.encode(it) },
+        savedGame = SavedGamesCodec.encode(data.savedGames),
         scores = ScoresCodec.encode(data.scores),
         starters = StarterCodec.encode(data.starters),
     )

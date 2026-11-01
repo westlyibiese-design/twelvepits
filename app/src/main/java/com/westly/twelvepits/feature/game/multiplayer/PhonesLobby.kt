@@ -39,6 +39,8 @@ data class LobbyState(
     val remote: RemotePlayer? = null,
     val localAccepted: Boolean = false,
     val error: LobbyError? = null,
+    /** The code the phone's connection service gave, for a failure that came from it. */
+    val errorCode: Int? = null,
 )
 
 const val CONNECT_TIMEOUT_MS = 60_000L
@@ -141,10 +143,11 @@ class PhonesLobby(
     }
 
     private fun fail(error: LobbyError) {
+        val code = if (error == LobbyError.START_FAILED || error == LobbyError.ERROR) transport.lastFailureCode else null
         transport.close()
         controller = null
         forget()
-        mutableState.value = LobbyState(stage = LobbyStage.FAILED, error = error)
+        mutableState.value = LobbyState(stage = LobbyStage.FAILED, error = error, errorCode = code)
     }
 
     private fun inConnecting(): Boolean {

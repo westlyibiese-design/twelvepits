@@ -50,6 +50,13 @@ interface GameTransport {
 
     /** Close the connection and stop everything. The transport can be used again afterwards. */
     fun close()
+
+    /**
+     * The code the phone's connection service gave for the last failure, or null when there was none.
+     * It is shown on the failure screen so a problem can be named exactly.
+     */
+    val lastFailureCode: Int?
+        get() = null
 }
 
 /** The name sent while connecting carries the avatar too: "KING|Westly". */

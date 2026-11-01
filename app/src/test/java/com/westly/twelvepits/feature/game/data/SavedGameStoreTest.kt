@@ -39,16 +39,16 @@ class SavedGameStoreTest {
     fun test9_aSavedGameComesBackExactly() = runBlocking {
         val save = midGameSave(turns = 5)
         store.saveGame(save)
-        assertTrue(store.hasSavedGame())
-        assertEquals(save, store.loadSavedGame())
-        assertEquals(save, store.savedGame.first())
+        assertTrue(store.hasSavedGame(testConfig()))
+        assertEquals(save, store.loadSavedGame(testConfig()))
+        assertEquals(save, store.savedGames.first()[SaveSlot.NORMAL])
     }
 
     @Test
     fun test9_noSavedGameMeansNoContinue() = runBlocking {
-        assertFalse(store.hasSavedGame())
-        assertNull(store.loadSavedGame())
-        assertNull(store.savedGame.first())
+        assertFalse(store.hasSavedGame(testConfig()))
+        assertNull(store.loadSavedGame(testConfig()))
+        assertNull(store.savedGames.first()[SaveSlot.NORMAL])
     }
 
     @Test
@@ -56,14 +56,14 @@ class SavedGameStoreTest {
         store.saveGame(midGameSave(turns = 3))
         val newer = midGameSave(turns = 6)
         store.saveGame(newer)
-        assertEquals(newer, store.loadSavedGame())
+        assertEquals(newer, store.loadSavedGame(testConfig()))
     }
 
     @Test
     fun deletingTheSavedGameRemovesContinue() = runBlocking {
         store.saveGame(midGameSave())
-        store.deleteSavedGame()
-        assertFalse(store.hasSavedGame())
+        store.deleteSavedGame(testConfig())
+        assertFalse(store.hasSavedGame(testConfig()))
         assertNull(storage.value.savedGame)
     }
 
@@ -73,7 +73,7 @@ class SavedGameStoreTest {
         store.saveGame(midGameSave(config = config))
         val (finished, _) = finishedGame(Player.ONE, 21)
         store.recordFinishedGame(config, finished)
-        assertFalse(store.hasSavedGame())
+        assertFalse(store.hasSavedGame(config))
     }
 
     // ---- Damaged saves ----
@@ -81,17 +81,17 @@ class SavedGameStoreTest {
     @Test
     fun aDamagedSaveIsIgnoredAndDeletedWithoutACrash() = runBlocking {
         storage.overwriteSavedGame("this is not a game")
-        assertNull(store.savedGame.first())
-        assertNull(store.loadSavedGame())
+        assertNull(store.savedGames.first()[SaveSlot.NORMAL])
+        assertNull(store.loadSavedGame(testConfig()))
         assertNull(storage.value.savedGame)
-        assertFalse(store.hasSavedGame())
+        assertFalse(store.hasSavedGame(testConfig()))
     }
 
     @Test
     fun aSaveThatDoesNotAddUpIsIgnoredAndDeleted() = runBlocking {
         val good = SavedGameCodec.encode(midGameSave())
         storage.overwriteSavedGame(good.replace("storeOne=", "storeOne=8"))
-        assertNull(store.loadSavedGame())
+        assertNull(store.loadSavedGame(testConfig()))
         assertNull(storage.value.savedGame)
     }
 
@@ -99,7 +99,7 @@ class SavedGameStoreTest {
     fun aSaveFromANewerVersionIsIgnoredAndDeleted() = runBlocking {
         val good = SavedGameCodec.encode(midGameSave())
         storage.overwriteSavedGame(good.replace("schemaVersion=1", "schemaVersion=2"))
-        assertNull(store.loadSavedGame())
+        assertNull(store.loadSavedGame(testConfig()))
         assertNull(storage.value.savedGame)
     }
 
@@ -108,10 +108,10 @@ class SavedGameStoreTest {
         val save = midGameSave()
         store.saveGame(save)
         store.discardDamagedSave()
-        assertEquals(save, store.loadSavedGame())
+        assertEquals(save, store.loadSavedGame(testConfig()))
         storage.overwriteSavedGame("broken")
         store.discardDamagedSave()
-        assertNull(store.loadSavedGame())
+        assertNull(store.loadSavedGame(testConfig()))
         assertNull(storage.value.savedGame)
     }
 
@@ -121,7 +121,7 @@ class SavedGameStoreTest {
         val (finished, _) = finishedGame(Player.ONE, 8)
         store.recordFinishedGame(config, finished)
         storage.overwriteSavedGame("broken")
-        assertNull(store.loadSavedGame())
+        assertNull(store.loadSavedGame(config))
         assertEquals(1, store.scores.first().twoPlayers.playerOne + store.scores.first().twoPlayers.playerTwo)
         assertEquals(Player.TWO, store.starterFor(GameMode.TWO_PLAYERS_ONE_PHONE))
     }
@@ -136,7 +136,7 @@ class SavedGameStoreTest {
         val winner = finished.winner!!
         val editsBefore = storage.editCount
         store.recordFinishedGame(config, finished)
-        store.hasSavedGame() // waits until the queued write is done
+        store.hasSavedGame(config) // waits until the queued write is done
         assertEquals(1, storage.editCount - editsBefore)
         assertNull(storage.value.savedGame)
         val scores = store.scores.first()
@@ -151,7 +151,7 @@ class SavedGameStoreTest {
         val save = midGameSave(config = config)
         store.saveGame(save)
         // The final turn is played, but the app is closed before recordFinishedGame runs.
-        assertEquals(save, store.loadSavedGame())
+        assertEquals(save, store.loadSavedGame(config))
         assertEquals(Scores(), store.scores.first())
         assertEquals(Player.ONE, store.starterFor(GameMode.VS_COMPUTER))
     }
@@ -203,7 +203,7 @@ class SavedGameStoreTest {
         val (middle, stats) = playTurns(start.state, 9, 4)
         store.saveGame(SavedGame(config, middle, 5000L, stats))
         // Leaving, replacing the saved game and starting over: the starter stays Player ONE.
-        store.deleteSavedGame()
+        store.deleteSavedGame(config)
         assertEquals(Player.ONE, store.starterFor(GameMode.TWO_PLAYERS_ONE_PHONE))
         assertEquals(Player.ONE, store.prepareStart(config, StartMode.NEW)!!.state.startingPlayer)
     }
@@ -255,7 +255,7 @@ class SavedGameStoreTest {
 
         assertEquals(Scores(), store.scores.first())
         assertEquals(Player.ONE, store.starterFor(GameMode.TWO_PLAYERS_ONE_PHONE))
-        assertEquals(save, store.loadSavedGame())
+        assertEquals(save, store.loadSavedGame(config))
     }
 
     // ---- Starting the game screen ----
@@ -325,19 +325,126 @@ class SavedGameStoreTest {
         val second = midGameSave(turns = 7)
         threaded.saveGame(first)
         threaded.saveGame(second)
-        assertEquals(second, threaded.loadSavedGame())
+        assertEquals(second, threaded.loadSavedGame(testConfig()))
     }
 
     @Test
     fun aFailedWriteIsReportedAndTheNextWriteStillWorks() = runBlocking {
         storage.failEdits = true
         store.saveGame(midGameSave(turns = 2))
-        store.hasSavedGame()
+        store.hasSavedGame(testConfig())
         assertEquals(listOf("A game data write failed"), errors)
         storage.failEdits = false
         val good = midGameSave(turns = 4)
         store.saveGame(good)
-        assertEquals(good, store.loadSavedGame())
+        assertEquals(good, store.loadSavedGame(testConfig()))
         assertNotNull(storage.value.savedGame)
+    }
+
+    // ---- One saved game for each mode ----
+
+    @Test
+    fun saveSlotsFollowTheModeAndTheLevel() {
+        assertEquals(SaveSlot.EASY, SaveSlot.forConfig(testConfig(GameMode.VS_COMPUTER, Difficulty.EASY)))
+        assertEquals(SaveSlot.NORMAL, SaveSlot.forConfig(testConfig(GameMode.VS_COMPUTER, Difficulty.NORMAL)))
+        assertEquals(SaveSlot.HARD, SaveSlot.forConfig(testConfig(GameMode.VS_COMPUTER, Difficulty.HARD)))
+        assertEquals(SaveSlot.TWO_PLAYERS, SaveSlot.forConfig(testConfig(GameMode.TWO_PLAYERS_ONE_PHONE)))
+        assertNull(SaveSlot.forConfig(testConfig(GameMode.TWO_PHONES)))
+    }
+
+    @Test
+    fun everyComputerLevelAndTwoPlayersKeepTheirOwnSavedGame() = runBlocking {
+        val easy = midGameSave(config = testConfig(GameMode.VS_COMPUTER, Difficulty.EASY), turns = 3)
+        val normal = midGameSave(config = testConfig(GameMode.VS_COMPUTER, Difficulty.NORMAL), turns = 4)
+        val hard = midGameSave(config = testConfig(GameMode.VS_COMPUTER, Difficulty.HARD), turns = 5)
+        val twoPlayers = midGameSave(config = testConfig(GameMode.TWO_PLAYERS_ONE_PHONE), turns = 6)
+        store.saveGame(easy)
+        store.saveGame(normal)
+        store.saveGame(hard)
+        store.saveGame(twoPlayers)
+        assertEquals(easy, store.loadSavedGame(easy.config))
+        assertEquals(normal, store.loadSavedGame(normal.config))
+        assertEquals(hard, store.loadSavedGame(hard.config))
+        assertEquals(twoPlayers, store.loadSavedGame(twoPlayers.config))
+        assertEquals(4, store.savedGames.first().size)
+    }
+
+    @Test
+    fun savingOneLevelNeverReplacesTheGameOfAnotherLevel() = runBlocking {
+        val easy = midGameSave(config = testConfig(GameMode.VS_COMPUTER, Difficulty.EASY), turns = 3)
+        store.saveGame(easy)
+        store.saveGame(midGameSave(config = testConfig(GameMode.VS_COMPUTER, Difficulty.HARD), turns = 5))
+        assertEquals(easy, store.loadSavedGame(easy.config))
+    }
+
+    @Test
+    fun finishingOneGameRemovesOnlyItsOwnSavedGame() = runBlocking {
+        val hardConfig = testConfig(GameMode.VS_COMPUTER, Difficulty.HARD)
+        val easy = midGameSave(config = testConfig(GameMode.VS_COMPUTER, Difficulty.EASY), turns = 4)
+        store.saveGame(midGameSave(config = hardConfig))
+        store.saveGame(easy)
+        val (finished, _) = finishedGame(Player.ONE, 44)
+        store.recordFinishedGame(hardConfig, finished)
+        assertFalse(store.hasSavedGame(hardConfig))
+        assertEquals(easy, store.loadSavedGame(easy.config))
+    }
+
+    @Test
+    fun restoreGivesEachLevelItsOwnPositionAndANewGameWhereThereIsNone() = runBlocking {
+        val easy = midGameSave(config = testConfig(GameMode.VS_COMPUTER, Difficulty.EASY), turns = 3)
+        val hard = midGameSave(config = testConfig(GameMode.VS_COMPUTER, Difficulty.HARD), turns = 7)
+        store.saveGame(easy)
+        store.saveGame(hard)
+        assertEquals(easy.state, store.prepareStart(easy.config, StartMode.RESTORE)!!.state)
+        assertEquals(hard.state, store.prepareStart(hard.config, StartMode.RESTORE)!!.state)
+        val fresh = store.prepareStart(testConfig(GameMode.VS_COMPUTER, Difficulty.NORMAL), StartMode.RESTORE)!!
+        assertEquals(GameState.initial(Player.ONE), fresh.state)
+    }
+
+    @Test
+    fun clearingTheSavedGamesRemovesAllOfThemAndKeepsTheScores() = runBlocking {
+        val config = testConfig(GameMode.TWO_PLAYERS_ONE_PHONE)
+        val (finished, _) = finishedGame(Player.ONE, 12)
+        store.recordFinishedGame(config, finished)
+        store.saveGame(midGameSave(config = testConfig(GameMode.VS_COMPUTER, Difficulty.HARD)))
+        store.saveGame(midGameSave(config = config))
+        val scoresBefore = store.scores.first()
+        store.clearSavedGames()
+        assertTrue(store.savedGames.first().isEmpty())
+        assertNull(storage.value.savedGame)
+        assertEquals(scoresBefore, store.scores.first())
+    }
+
+    @Test
+    fun aTwoPhonesGameIsNeverSaved() = runBlocking {
+        val config = testConfig(GameMode.TWO_PHONES)
+        store.saveGame(midGameSave(config = config))
+        assertFalse(store.hasSavedGame(config))
+        assertNull(storage.value.savedGame)
+    }
+
+    @Test
+    fun aSaveWrittenByTheOlderVersionStillComesBackInItsOwnSlot() = runBlocking {
+        val old = midGameSave(config = testConfig(GameMode.VS_COMPUTER, Difficulty.HARD), turns = 4)
+        storage.overwriteSavedGame(SavedGameCodec.encode(old))
+        assertEquals(old, store.loadSavedGame(old.config))
+        assertNull(store.loadSavedGame(testConfig(GameMode.VS_COMPUTER, Difficulty.EASY)))
+        // It was rewritten in the new format and is still there.
+        assertEquals(old, SavedGamesCodec.decode(storage.value.savedGame!!)[SaveSlot.HARD])
+    }
+
+    @Test
+    fun aDamagedSlotIsDroppedAndTheOtherSlotsStay() = runBlocking {
+        val easy = midGameSave(config = testConfig(GameMode.VS_COMPUTER, Difficulty.EASY), turns = 3)
+        val hard = midGameSave(config = testConfig(GameMode.VS_COMPUTER, Difficulty.HARD), turns = 5)
+        store.saveGame(easy)
+        store.saveGame(hard)
+        store.hasSavedGame(easy.config) // waits until the queued writes are done
+        val broken = storage.value.savedGame!!.split("\n").joinToString("\n") { line ->
+            if (line.startsWith("slot.HARD=")) "slot.HARD=garbage" else line
+        }
+        storage.overwriteSavedGame(broken)
+        assertEquals(easy, store.loadSavedGame(easy.config))
+        assertNull(store.loadSavedGame(hard.config))
     }
 }

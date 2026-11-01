@@ -65,6 +65,7 @@ fun SettingsScreen(
         ) {
             SettingsControls(settings = settings, sound = sound)
             ScoresSection(savedGames = savedGames)
+            SavedGamesSection(savedGames = savedGames)
         }
         Footer(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp))
     }
@@ -231,6 +232,48 @@ private fun ScoresSection(savedGames: SavedGameStore) {
                 scope.launch { savedGames.resetScores() }
             },
             onDismiss = { askReset = false },
+        )
+    }
+}
+
+/**
+ * The only place where games in progress are thrown away. Every computer level and Two players keep
+ * their own game, and they always come back by themselves; this button starts all of them afresh.
+ * Scores, settings, names and avatars are not touched.
+ */
+@Composable
+private fun SavedGamesSection(savedGames: SavedGameStore) {
+    var askClear by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
+        BasicText(
+            text = stringResource(R.string.settings_saved_games),
+            style = TwelvePitsType.sectionTitle,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        BasicText(
+            text = stringResource(R.string.saved_games_note),
+            style = TwelvePitsType.bodyMuted,
+        )
+        OutlinedGoldButton(
+            text = stringResource(R.string.saved_games_clear),
+            onClick = { askClear = true },
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        )
+    }
+
+    if (askClear) {
+        GameDialog(
+            title = stringResource(R.string.saved_games_clear),
+            message = stringResource(R.string.saved_games_clear_message),
+            confirmText = stringResource(R.string.saved_games_clear_confirm),
+            dismissText = stringResource(R.string.dialog_cancel),
+            onConfirm = {
+                askClear = false
+                scope.launch { savedGames.clearSavedGames() }
+            },
+            onDismiss = { askClear = false },
         )
     }
 }

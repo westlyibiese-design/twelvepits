@@ -131,6 +131,56 @@ internal object SavedGameCodec {
     }
 }
 
+/**
+ * All mid-game saves in one text, one line per slot: `slot.HARD=<the save of that slot, URL-encoded>`.
+ * A save written by an older version (one save, no `slot.` lines) is still read: it goes to the slot of
+ * its own game. A slot that is damaged, or does not belong to its line, is dropped; the others stay.
+ */
+internal object SavedGamesCodec {
+    private const val SLOT_PREFIX = "slot."
+
+    /** Far more than four saves need; only rejects absurd data. */
+    private const val MAX_CONTAINER_LENGTH = 32_768
+
+    /** Null when there is nothing to save. Slots are always written in the same order. */
+    fun encode(saves: Map<SaveSlot, SavedGame>): String? {
+        val lines = ArrayList<String>()
+        for (slot in SaveSlot.entries) {
+            val save = saves[slot] ?: continue
+            if (SaveSlot.forConfig(save.config) != slot) continue
+            lines.add("$SLOT_PREFIX${slot.name}=${URLEncoder.encode(SavedGameCodec.encode(save), CHARSET)}")
+        }
+        return if (lines.isEmpty()) null else lines.joinToString(LINE_BREAK)
+    }
+
+    /** Never null: anything that cannot be read is simply left out. */
+    fun decode(text: String): Map<SaveSlot, SavedGame> {
+        if (text.length > MAX_CONTAINER_LENGTH) return emptyMap()
+        val lines = text.split(LINE_BREAK).filter { it.isNotEmpty() }
+        if (lines.isNotEmpty() && lines.all { it.startsWith(SLOT_PREFIX) }) {
+            val result = LinkedHashMap<SaveSlot, SavedGame>()
+            for (line in lines) {
+                val separator = line.indexOf('=')
+                if (separator < 0) continue
+                val slot = SaveSlot.entries.firstOrNull { it.name == line.substring(SLOT_PREFIX.length, separator) }
+                    ?: continue
+                val inner = try {
+                    URLDecoder.decode(line.substring(separator + 1), CHARSET)
+                } catch (e: IllegalArgumentException) {
+                    continue
+                }
+                val save = SavedGameCodec.decode(inner) ?: continue
+                if (SaveSlot.forConfig(save.config) == slot) result[slot] = save
+            }
+            return result
+        }
+        // A save from an older version: one save in the plain format.
+        val old = SavedGameCodec.decode(text) ?: return emptyMap()
+        val slot = SaveSlot.forConfig(old.config) ?: return emptyMap()
+        return mapOf(slot to old)
+    }
+}
+
 /** Games won per mode: `computer.EASY=3,1` means Player ONE won 3 and Player TWO won 1. */
 internal object ScoresCodec {
     private const val COMPUTER_PREFIX = "computer."

@@ -8,13 +8,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -24,9 +22,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.westly.twelvepits.AppContainer
-import com.westly.twelvepits.R
 import com.westly.twelvepits.core.model.GameMode
-import com.westly.twelvepits.core.theme.GameDialog
 import com.westly.twelvepits.feature.game.ui.GameScreen
 import com.westly.twelvepits.feature.game.ui.GameViewModel
 import com.westly.twelvepits.feature.game.ui.GameViewModelFactory
@@ -42,7 +38,6 @@ import com.westly.twelvepits.feature.menu.SetupKind
 import com.westly.twelvepits.feature.result.PhonesResultHost
 import com.westly.twelvepits.feature.result.ResultScreen
 import com.westly.twelvepits.feature.settings.SettingsScreen
-import kotlinx.coroutines.launch
 
 private const val FADE_MS = 400
 
@@ -84,38 +79,11 @@ fun AppNavGraph(
             }
             composable(Routes.MENU) {
                 LaunchedEffect(Unit) { container.sound.startMenuMusic() }
-                val scope = rememberCoroutineScope()
-                var opening by remember { mutableStateOf(false) }
-                var loadFailed by remember { mutableStateOf(false) }
                 MainMenuScreen(
-                    savedGames = container.savedGames,
-                    onContinue = {
-                        if (!opening) {
-                            opening = true
-                            scope.launch {
-                                val saved = container.savedGames.loadSavedGame()
-                                if (saved == null) {
-                                    loadFailed = true
-                                } else {
-                                    navController.navigate(Routes.game(saved.config, StartMode.CONTINUE))
-                                }
-                                opening = false
-                            }
-                        }
-                    },
                     onPlay = { navController.navigate(Routes.MODE_SELECT) },
                     onHowToPlay = { navController.navigate(Routes.HOW_TO_PLAY) },
                     onSettings = { navController.navigate(Routes.SETTINGS) },
                 )
-                if (loadFailed) {
-                    GameDialog(
-                        title = stringResource(R.string.continue_failed_title),
-                        message = stringResource(R.string.continue_failed_message),
-                        confirmText = stringResource(R.string.dialog_ok),
-                        onConfirm = { loadFailed = false },
-                        onDismiss = { loadFailed = false },
-                    )
-                }
             }
             composable(Routes.MODE_SELECT) {
                 ModeSelectScreen(
@@ -129,18 +97,18 @@ fun AppNavGraph(
                 GameSetupHost(
                     kind = SetupKind.COMPUTER,
                     settings = container.settings,
-                    savedGames = container.savedGames,
                     onBack = { navController.popBackStack() },
-                    onStartGame = { config -> navController.navigate(Routes.game(config)) },
+                    // A game in progress of this level comes back by itself; a new one starts only if there is none.
+                    onStartGame = { config -> navController.navigate(Routes.game(config, StartMode.RESTORE)) },
                 )
             }
             composable(Routes.SETUP_TWO_PLAYERS) {
                 GameSetupHost(
                     kind = SetupKind.TWO_PLAYERS,
                     settings = container.settings,
-                    savedGames = container.savedGames,
                     onBack = { navController.popBackStack() },
-                    onStartGame = { config -> navController.navigate(Routes.game(config)) },
+                    // A game in progress of this kind comes back by itself; a new one starts only if there is none.
+                    onStartGame = { config -> navController.navigate(Routes.game(config, StartMode.RESTORE)) },
                 )
             }
             composable(Routes.PHONES) {

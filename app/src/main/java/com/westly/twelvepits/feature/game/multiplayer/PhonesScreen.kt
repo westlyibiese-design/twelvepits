@@ -229,7 +229,11 @@ fun PhonesScreen(
                 body = null,
                 onCancel = lobby::cancel,
             )
-            LobbyStage.FAILED -> FailedPanel(error = state.error, onTryAgain = lobby::reset)
+            LobbyStage.FAILED -> FailedPanel(
+                error = state.error,
+                errorCode = state.errorCode,
+                onTryAgain = lobby::reset,
+            )
         }
     }
 
@@ -471,7 +475,7 @@ private fun ColumnScope.ConfirmPanel(state: LobbyState, lobby: PhonesLobby) {
 }
 
 @Composable
-private fun ColumnScope.FailedPanel(error: LobbyError?, onTryAgain: () -> Unit) {
+private fun ColumnScope.FailedPanel(error: LobbyError?, errorCode: Int?, onTryAgain: () -> Unit) {
     val message = stringResource(
         when (error) {
             LobbyError.START_FAILED -> R.string.phones_error_start
@@ -496,6 +500,12 @@ private fun ColumnScope.FailedPanel(error: LobbyError?, onTryAgain: () -> Unit) 
             style = TwelvePitsType.sectionTitle.copy(textAlign = TextAlign.Center),
         )
         BasicText(text = message, style = TwelvePitsType.body.copy(textAlign = TextAlign.Center))
+        if (errorCode != null) {
+            BasicText(
+                text = stringResource(R.string.phones_error_code, errorCode),
+                style = TwelvePitsType.bodyMuted.copy(textAlign = TextAlign.Center),
+            )
+        }
     }
     GoldButton(
         text = stringResource(R.string.phones_try_again),

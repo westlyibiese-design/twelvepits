@@ -49,9 +49,9 @@ class TwoPhonesScoresTest {
             elapsedMs = 5L,
             stats = TurnStats(),
         )
-        val before = GameData(savedGame = saved)
+        val before = GameData(savedGames = mapOf(SaveSlot.TWO_PLAYERS to saved))
         val after = before.afterTwoPhonesGame(true, Player.ONE)
-        assertEquals(saved, after.savedGame)
+        assertEquals(saved, after.savedGames[SaveSlot.TWO_PLAYERS])
         assertEquals(before.scores.twoPlayers, after.scores.twoPlayers)
         assertEquals(before.scores.vsComputer, after.scores.vsComputer)
         assertEquals(before.starters.starterFor(GameMode.VS_COMPUTER), after.starters.starterFor(GameMode.VS_COMPUTER))
